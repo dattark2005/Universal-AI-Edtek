@@ -4,6 +4,8 @@ import { eduAPI } from "../../services/api";
 import axios from "axios";
 import { Assignment, Submission } from "../../types";
 
+const API_BASE_URL = "http://localhost:5000"; // Change if your backend runs elsewhere
+
 const EvaluateSubmissions: React.FC = () => {
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(
     null
@@ -65,13 +67,21 @@ const EvaluateSubmissions: React.FC = () => {
     }
   };
 
-  const getSubmissionsForAssignment = (assignmentId: string) => {
-    return submissions.filter(
-      (s) =>
-        s.assignmentId === assignmentId ||
-        (typeof s.assignmentId === "object" &&
-          s.assignmentId._id === assignmentId)
-    );
+  const getSubmissionsForAssignment = (
+    assignmentId: string | { id?: string; _id?: string }
+  ) => {
+    // Normalize assignmentId to string
+    const aid =
+      typeof assignmentId === "object"
+        ? assignmentId.id || assignmentId._id
+        : assignmentId;
+    return submissions.filter((s: any) => {
+      const sid =
+        typeof s.assignmentId === "object"
+          ? s.assignmentId.id || s.assignmentId._id
+          : s.assignmentId;
+      return sid === aid;
+    });
   };
 
   // Filter assignments created by this teacher
@@ -97,6 +107,20 @@ const EvaluateSubmissions: React.FC = () => {
           "Unknown Classroom"
       : "Unknown Classroom";
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 shadow-lg shadow-blue-400/40 mb-6"></div>
+        <div className="text-2xl font-bold text-blue-300 drop-shadow-glow mb-2 animate-pulse">
+          Loading submissions and assignments...
+        </div>
+        <div className="text-blue-100 text-lg font-medium opacity-80">
+          Please wait while we fetch your data.
+        </div>
+      </div>
+    );
+  }
 
   if (teacherAssignments.length === 0) {
     return (
@@ -206,8 +230,17 @@ const EvaluateSubmissions: React.FC = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="text-lg font-semibold text-white">
-                        {submission.studentName}
+                        {submission.studentId?.name ||
+                          submission.studentId?.email ||
+                          submission.studentId?._id ||
+                          submission.studentId ||
+                          "Unknown Student"}
                       </h4>
+                      {submission.studentId?.email && (
+                        <p className="text-white/50 text-xs mb-1">
+                          {submission.studentId.email}
+                        </p>
+                      )}
                       <p className="text-white/60 text-sm">
                         Submitted:{" "}
                         {new Date(submission.submittedAt).toLocaleString()}
@@ -234,6 +267,36 @@ const EvaluateSubmissions: React.FC = () => {
                     <p className="text-white/80 whitespace-pre-wrap">
                       {submission.content}
                     </p>
+                    {submission.attachments &&
+                      submission.attachments.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-white/70 font-semibold mb-1">
+                            Attachments:
+                          </div>
+                          <ul className="list-disc list-inside">
+                            {submission.attachments.map(
+                              (file: any, idx: number) => (
+                                <li key={idx}>
+                                  <a
+                                    href={
+                                      file.url.startsWith("http")
+                                        ? file.url
+                                        : `${API_BASE_URL}${
+                                            file.url.startsWith("/") ? "" : "/"
+                                          }${file.url}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-300 underline hover:text-blue-400"
+                                  >
+                                    {file.filename}
+                                  </a>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
                   </div>
 
                   {submission.feedback && (
@@ -245,7 +308,7 @@ const EvaluateSubmissions: React.FC = () => {
                     </div>
                   )}
 
-                  {gradingSubmission === submission.id ? (
+                  {gradingSubmission === (submission.id || submission._id) ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -279,7 +342,11 @@ const EvaluateSubmissions: React.FC = () => {
 
                       <div className="flex gap-4">
                         <button
-                          onClick={() => handleGradeSubmission(submission.id)}
+                          onClick={() =>
+                            handleGradeSubmission(
+                              submission.id || submission._id
+                            )
+                          }
                           disabled={
                             !grade ||
                             !feedback.trim() ||
@@ -313,7 +380,9 @@ const EvaluateSubmissions: React.FC = () => {
                     </div>
                   ) : (
                     <button
-                      onClick={() => setGradingSubmission(submission.id)}
+                      onClick={() =>
+                        setGradingSubmission(submission.id || submission._id)
+                      }
                       className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-colors ${
                         submission.grade !== undefined
                           ? "bg-blue-500 hover:bg-blue-600 text-white"

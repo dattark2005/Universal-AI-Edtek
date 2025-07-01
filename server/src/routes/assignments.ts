@@ -6,8 +6,21 @@ import { authenticateToken, requireRole } from '../middleware/auth';
 import { validateRequest, schemas } from '../middleware/validation';
 import { AuthenticatedRequest } from '../types';
 import mongoose from 'mongoose';
+import multer from 'multer';
+import path from 'path';
 
 const router = express.Router();
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../uploads'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
 
 // @desc    Get assignments
 // @route   GET /api/assignments
@@ -96,18 +109,14 @@ router.post('/', authenticateToken, requireRole(['teacher']), validateRequest(sc
 // @desc    Submit assignment
 // @route   POST /api/assignments/:id/submit
 // @access  Private (Student only)
-router.post('/:id/submit', authenticateToken, requireRole(['student']), async (req: AuthenticatedRequest, res) => {
+router.post('/:id/submit', authenticateToken, requireRole(['student']), upload.array('attachments', 5), async (req: AuthenticatedRequest, res) => {
   try {
+    console.log('REQ.BODY:', req.body);
+    console.log('REQ.FILES:', req.files);
     const { content } = req.body;
     const assignmentId = req.params.id;
     const studentId = req.user!.id;
-
-    if (!content || !content.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Content is required'
-      });
-    }
+    const files = req.files as Express.Multer.File[];
 
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment) {
@@ -138,10 +147,21 @@ router.post('/:id/submit', authenticateToken, requireRole(['student']), async (r
       });
     }
 
+    let attachments: any[] = [];
+    if (files && files.length > 0) {
+      attachments = files.map(file => ({
+        filename: file.originalname,
+        url: `/uploads/${file.filename}`,
+        size: file.size,
+        mimeType: file.mimetype
+      }));
+    }
+
     const submission = await Submission.create({
       assignmentId,
       studentId,
-      content: content.trim()
+      content: content ? content.trim() : '',
+      attachments
     });
 
     await submission.populate('studentId', 'name email');
@@ -183,29 +203,29 @@ router.delete('/:id', authenticateToken, requireRole(['teacher']), async (req: A
   }
 });
 
-// @desc    Grade a submission
-// @route   PATCH /api/submissions/:id
+// @desc    Update assignment
+// @route   PATCH /api/assignments/:id
 // @access  Private (Teacher only)
-router.patch('/submissions/:id', authenticateToken, requireRole(['teacher']), async (req: AuthenticatedRequest, res) => {
+router.patch('/:id', authenticateToken, requireRole(['teacher']), async (req: AuthenticatedRequest, res) => {
   try {
-    const { grade, feedback } = req.body;
-    const submissionId = req.params.id;
-    if (grade === undefined || feedback === undefined) {
-      return res.status(400).json({ success: false, message: 'Grade and feedback are required' });
+    const assignmentId = req.params.id;
+    const userId = req.user!.id;
+    const { dueDate, description, maxPoints } = req.body;
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
     }
-    const submission = await Submission.findById(submissionId);
-    if (!submission) {
-      return res.status(404).json({ success: false, message: 'Submission not found' });
+    if (assignment.teacherId.toString() !== userId) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this assignment' });
     }
-    submission.grade = grade;
-    submission.feedback = feedback;
-    submission.gradedBy = req.user!.id;
-    submission.gradedAt = new Date();
-    await submission.save();
-    res.json({ success: true, message: 'Submission graded successfully', data: { submission } });
-  } catch (error: any) {
-    console.error('Grade submission error:', error);
-    res.status(500).json({ success: false, message: 'Server error grading submission' });
+    if (dueDate !== undefined) assignment.dueDate = dueDate;
+    if (description !== undefined) assignment.description = description;
+    if (maxPoints !== undefined) assignment.maxPoints = maxPoints;
+    await assignment.save();
+    res.json({ success: true, message: 'Assignment updated successfully', data: { assignment } });
+  } catch (error) {
+    console.error('Update assignment error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating assignment' });
   }
 });
 

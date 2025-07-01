@@ -8,6 +8,7 @@ import {
   Users,
   Sparkles,
   BookOpen,
+  Pencil,
 } from "lucide-react";
 
 const sections = [
@@ -57,6 +58,15 @@ const ManageAssignments: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editAssignment, setEditAssignment] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    dueDate: "",
+    description: "",
+    maxPoints: "",
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAssignments = async () => {
@@ -93,6 +103,65 @@ const ManageAssignments: React.FC = () => {
       );
     } catch (err) {
       alert("Failed to delete assignment.");
+    }
+  };
+
+  const openEditModal = (assignment: any) => {
+    setEditAssignment(assignment);
+    setEditForm({
+      dueDate: assignment.dueDate
+        ? new Date(assignment.dueDate).toISOString().slice(0, 16)
+        : "",
+      description: assignment.description || "",
+      maxPoints: assignment.maxPoints?.toString() || "",
+    });
+    setEditError(null);
+    setEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditAssignment(null);
+    setEditError(null);
+  };
+
+  const handleEditChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editAssignment) return;
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await axios.patch(
+        `/api/assignments/${editAssignment._id || editAssignment.id}`,
+        {
+          dueDate: editForm.dueDate,
+          description: editForm.description,
+          maxPoints: Number(editForm.maxPoints),
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Update assignment in state
+      setAssignments((prev) =>
+        prev.map((a) =>
+          (a._id || a.id) === (editAssignment._id || editAssignment.id)
+            ? { ...a, ...res.data.data.assignment }
+            : a
+        )
+      );
+      closeEditModal();
+    } catch (err: any) {
+      setEditError(
+        err.response?.data?.message || "Failed to update assignment."
+      );
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -220,7 +289,12 @@ const ManageAssignments: React.FC = () => {
                                 >
                                   Delete
                                 </button>
-                                {/* Optionally add a View Details or View Submissions button here */}
+                                <button
+                                  onClick={() => openEditModal(assignment)}
+                                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold mr-2 flex items-center gap-1"
+                                >
+                                  <Pencil className="w-4 h-4" /> Edit
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -234,6 +308,75 @@ const ManageAssignments: React.FC = () => {
           </div>
         </div>
       </div>
+      {/* Edit Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative animate-fade-in">
+            <button
+              onClick={closeEditModal}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">
+              Edit Assignment
+            </h2>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">
+                  Due Date
+                </label>
+                <input
+                  type="datetime-local"
+                  name="dueDate"
+                  value={editForm.dueDate}
+                  onChange={handleEditChange}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={editForm.description}
+                  onChange={handleEditChange}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">
+                  Max Points
+                </label>
+                <input
+                  type="number"
+                  name="maxPoints"
+                  value={editForm.maxPoints}
+                  onChange={handleEditChange}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  min={1}
+                  max={1000}
+                  required
+                />
+              </div>
+              {editError && (
+                <div className="text-red-500 text-sm">{editError}</div>
+              )}
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg mt-2 disabled:opacity-60"
+                disabled={editLoading}
+              >
+                {editLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
