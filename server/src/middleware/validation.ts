@@ -62,7 +62,7 @@ export const schemas = {
   createAssignment: Joi.object({
     title: Joi.string().min(1).max(200).required(),
     description: Joi.string().min(1).max(2000).required(),
-    subject: Joi.string().valid('Mathematics', 'Science', 'English', 'History', 'Geography', 'Computer Science').required(),
+    subject: Joi.string().min(1).max(100).required(),
     dueDate: Joi.date().greater('now').required(),
     classroomId: Joi.string().optional(),
     maxPoints: Joi.number().min(1).max(1000).required()

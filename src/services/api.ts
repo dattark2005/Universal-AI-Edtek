@@ -179,3 +179,36 @@ export const externalQuizAPI = {
     }
   }
 };
+
+export const eduAPI = {
+  getSubjects: async () => {
+    const res = await apiRequest('/quizzes/subjects');
+    if (res.data.subjects && res.data.subjects.length > 0) {
+      return res.data.subjects;
+    }
+    // Fallback to default/mock subjects
+    return [
+      'Mathematics',
+      'Science',
+      'English',
+      'History',
+      'Geography',
+      'Computer Science'
+    ];
+  },
+  getTeacherClassrooms: async () => {
+    const res = await apiRequest('/classrooms');
+    return res.data.classrooms;
+  },
+  getSubmissions: async () => {
+    const res = await apiRequest('/submissions');
+    return res.data.submissions || res.data.data?.submissions || [];
+  },
+  gradeSubmission: async (submissionId: string, grade: number, feedback: string) => {
+    const res = await apiRequest(`/submissions/${submissionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ grade, feedback }),
+    });
+    return res.data.submission || res.data.data?.submission;
+  },
+};

@@ -23,6 +23,7 @@ const QuizResultsSection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
 
   const user = useMemo(() => getCurrentUser(), []);
 
@@ -436,20 +437,115 @@ const QuizResultsSection: React.FC = () => {
                       </h4>
                       <ul className="space-y-2">
                         {previousResults.map((res, idx) => (
-                          <li key={res.id} className="flex items-center gap-4">
-                            <span className="text-white/70 text-sm">
-                              {new Date(res.completedAt).toLocaleDateString()}:
-                            </span>
-                            <span className="text-white font-bold">
-                              {res.score}%
-                            </span>
-                            <span className="text-white/50 text-xs">
-                              (
-                              {Math.round(
-                                (res.score / 100) * res.totalQuestions
+                          <li key={res.id} className="flex flex-col gap-2">
+                            <div
+                              className="flex items-center gap-4 cursor-pointer group"
+                              onClick={() =>
+                                setExpandedQuizId(
+                                  expandedQuizId === res.id ? null : res.id
+                                )
+                              }
+                            >
+                              <span className="text-white/70 text-sm">
+                                {new Date(res.completedAt).toLocaleDateString()}
+                                :
+                              </span>
+                              <span className="text-white font-bold">
+                                {res.score}%
+                              </span>
+                              <span className="text-white/50 text-xs">
+                                (
+                                {Math.round(
+                                  (res.score / 100) * res.totalQuestions
+                                )}
+                                /{res.totalQuestions} correct)
+                              </span>
+                              <span className="ml-auto text-blue-400 group-hover:underline text-xs">
+                                {expandedQuizId === res.id
+                                  ? "Hide Answers"
+                                  : "Show Answers"}
+                              </span>
+                            </div>
+                            {/* Expandable: Show Q&A */}
+                            {expandedQuizId === res.id &&
+                              res.questions &&
+                              res.userAnswers && (
+                                <div className="mt-3 space-y-4">
+                                  {res.questions.map((q: any, qIdx: number) => {
+                                    const userAnsIdx = res.userAnswers[qIdx];
+                                    const isCorrect =
+                                      userAnsIdx === q.correctAnswer;
+                                    return (
+                                      <div
+                                        key={qIdx}
+                                        className={`rounded-xl p-4 border ${
+                                          isCorrect
+                                            ? "border-green-400 bg-green-500/10"
+                                            : "border-red-400 bg-red-500/10"
+                                        } shadow-sm`}
+                                      >
+                                        <div className="mb-2">
+                                          <span className="font-semibold text-white">
+                                            Q{qIdx + 1}:
+                                          </span>
+                                          <span className="ml-2 text-white/90 font-medium">
+                                            {q.question}
+                                          </span>
+                                        </div>
+                                        <ul className="space-y-1 ml-4">
+                                          {q.options.map(
+                                            (opt: string, optIdx: number) => (
+                                              <li
+                                                key={optIdx}
+                                                className={`px-2 py-1 rounded-lg text-sm font-mono ${
+                                                  optIdx === q.correctAnswer
+                                                    ? "bg-green-400/30 text-green-200 font-bold"
+                                                    : optIdx === userAnsIdx
+                                                    ? "bg-blue-400/20 text-blue-200"
+                                                    : "text-white/70"
+                                                }`}
+                                              >
+                                                {optIdx === q.correctAnswer && (
+                                                  <span className="mr-1">
+                                                    ✔️
+                                                  </span>
+                                                )}
+                                                {optIdx === userAnsIdx &&
+                                                  optIdx !==
+                                                    q.correctAnswer && (
+                                                    <span className="mr-1">
+                                                      ➤
+                                                    </span>
+                                                  )}
+                                                {opt}
+                                              </li>
+                                            )
+                                          )}
+                                        </ul>
+                                        <div className="mt-2 text-xs text-white/60">
+                                          Your answer:{" "}
+                                          <span
+                                            className={
+                                              isCorrect
+                                                ? "text-green-300 font-bold"
+                                                : "text-red-300 font-bold"
+                                            }
+                                          >
+                                            {typeof userAnsIdx === "number"
+                                              ? q.options[userAnsIdx]
+                                              : "No answer"}
+                                          </span>
+                                          {q.explanation && (
+                                            <div className="mt-1 text-white/50 italic">
+                                              Explanation: {q.explanation}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               )}
-                              /{res.totalQuestions} correct)
-                            </span>
                           </li>
                         ))}
                       </ul>

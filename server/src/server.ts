@@ -22,6 +22,7 @@ import studyPlanRoutes from './routes/studyPlans';
 import leaderboardRoutes from './routes/leaderboards';
 import uploadRoutes from './routes/upload';
 import aiRoutes from './routes/ai';
+import submissionsRoutes from './routes/submissions';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -73,6 +74,7 @@ app.use('/api/study-plans', studyPlanRoutes);
 app.use('/api/leaderboards', leaderboardRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/submissions', submissionsRoutes);
 
 // Error handling middleware
 app.use(notFound);

@@ -5,6 +5,7 @@ import Classroom from '../models/Classroom';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { validateRequest, schemas } from '../middleware/validation';
 import { AuthenticatedRequest } from '../types';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -157,6 +158,54 @@ router.post('/:id/submit', authenticateToken, requireRole(['student']), async (r
       success: false,
       message: 'Server error submitting assignment'
     });
+  }
+});
+
+// @desc    Delete assignment
+// @route   DELETE /api/assignments/:id
+// @access  Private (Teacher only)
+router.delete('/:id', authenticateToken, requireRole(['teacher']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const assignmentId = req.params.id;
+    const userId = req.user!.id;
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+    if (assignment.teacherId.toString() !== userId) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this assignment' });
+    }
+    await assignment.deleteOne();
+    res.json({ success: true, message: 'Assignment deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete assignment error:', error);
+    res.status(500).json({ success: false, message: 'Server error deleting assignment' });
+  }
+});
+
+// @desc    Grade a submission
+// @route   PATCH /api/submissions/:id
+// @access  Private (Teacher only)
+router.patch('/submissions/:id', authenticateToken, requireRole(['teacher']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { grade, feedback } = req.body;
+    const submissionId = req.params.id;
+    if (grade === undefined || feedback === undefined) {
+      return res.status(400).json({ success: false, message: 'Grade and feedback are required' });
+    }
+    const submission = await Submission.findById(submissionId);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+    submission.grade = grade;
+    submission.feedback = feedback;
+    submission.gradedBy = req.user!.id;
+    submission.gradedAt = new Date();
+    await submission.save();
+    res.json({ success: true, message: 'Submission graded successfully', data: { submission } });
+  } catch (error: any) {
+    console.error('Grade submission error:', error);
+    res.status(500).json({ success: false, message: 'Server error grading submission' });
   }
 });
 

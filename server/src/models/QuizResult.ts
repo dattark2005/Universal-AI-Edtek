@@ -8,7 +8,13 @@ export interface IQuizResult extends Document {
   totalQuestions: number;
   correctAnswers: number;
   timeSpent: number;
-  answers: number[];
+  userAnswers: number[];
+  questions: {
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    points: number;
+  }[];
   completedAt: Date;
 }
 
@@ -49,9 +55,15 @@ const quizResultSchema = new Schema<IQuizResult>({
     required: [true, 'Time spent is required'],
     min: 0
   },
-  answers: [{
+  userAnswers: [{
     type: Number,
     required: true
+  }],
+  questions: [{
+    question: { type: String, required: true },
+    options: [{ type: String, required: true }],
+    correctAnswer: { type: Number, required: true },
+    points: { type: Number, default: 1 }
   }],
   completedAt: {
     type: Date,
@@ -62,6 +74,7 @@ const quizResultSchema = new Schema<IQuizResult>({
   toJSON: {
     transform: function(doc, ret) {
       ret.id = ret._id;
+      if (ret.userAnswers) ret.answers = ret.userAnswers;
       delete ret._id;
       delete ret.__v;
       return ret;

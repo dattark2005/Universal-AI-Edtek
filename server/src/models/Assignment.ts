@@ -44,8 +44,7 @@ const assignmentSchema = new Schema<IAssignment>({
   subject: {
     type: String,
     required: [true, 'Subject is required'],
-    trim: true,
-    enum: ['Mathematics', 'Science', 'English', 'History', 'Geography', 'Computer Science']
+    trim: true
   },
   dueDate: {
     type: Date,

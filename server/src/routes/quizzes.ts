@@ -139,6 +139,25 @@ router.post('/results', authenticateToken, requireRole(['student']), async (req:
   }
 });
 
+// @desc    Get all unique quiz subjects
+// @route   GET /api/quizzes/subjects
+// @access  Private
+router.get('/subjects', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const subjects = await Quiz.distinct('subject', { isActive: true });
+    res.json({
+      success: true,
+      data: { subjects }
+    });
+  } catch (error) {
+    console.error('Get quiz subjects error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting quiz subjects'
+    });
+  }
+});
+
 // @desc    Get quiz by ID
 // @route   GET /api/quizzes/:id
 // @access  Private
@@ -230,7 +249,7 @@ router.post('/:id/submit', authenticateToken, requireRole(['student']), async (r
 
     const score = Math.round((correctAnswers / quiz.questions.length) * 100);
 
-    // Save result
+    // Save result with full questions and user answers (no explanation)
     const result = await QuizResult.create({
       userId: req.user!.id,
       quizId: quiz._id,
@@ -239,7 +258,13 @@ router.post('/:id/submit', authenticateToken, requireRole(['student']), async (r
       totalQuestions: quiz.questions.length,
       correctAnswers,
       timeSpent,
-      answers
+      userAnswers: answers,
+      questions: quiz.questions.map(q => ({
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        points: q.points
+      }))
     });
 
     res.status(201).json({

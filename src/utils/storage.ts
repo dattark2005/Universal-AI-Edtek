@@ -97,6 +97,10 @@ export const getAssignments = (): Assignment[] => {
   return assignments ? JSON.parse(assignments) : [];
 };
 
+export const clearAssignments = () => {
+  localStorage.removeItem('assignments');
+};
+
 // Submissions
 export const saveSubmission = (submission: Submission): void => {
   const submissions = getSubmissions();

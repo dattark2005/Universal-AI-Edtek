@@ -1,14 +1,22 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { User } from './types';
-import { authAPI, setAuthToken, removeAuthToken } from './services/api';
-import { setCurrentUser, getCurrentUser } from './utils/storage';
-import LoginPage from './components/Auth/LoginPage';
-import Navbar from './components/Layout/Navbar';
+import React, { useState, useEffect, Suspense, lazy } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { User } from "./types";
+import { authAPI, setAuthToken, removeAuthToken } from "./services/api";
+import { setCurrentUser, getCurrentUser } from "./utils/storage";
+import LoginPage from "./components/Auth/LoginPage";
+import Navbar from "./components/Layout/Navbar";
 
 // Lazy load dashboard components for better performance
-const StudentDashboard = lazy(() => import('./components/Student/Dashboard'));
-const TeacherDashboard = lazy(() => import('./components/Teacher/Dashboard'));
+const StudentDashboard = lazy(() => import("./components/Student/Dashboard"));
+const TeacherDashboard = lazy(() => import("./components/Teacher/Dashboard"));
+const ManageAssignments = lazy(
+  () => import("./components/Teacher/ManageAssignments")
+);
 
 // Loading component
 const LoadingSpinner = () => (
@@ -16,7 +24,9 @@ const LoadingSpinner = () => (
     <div className="glass-morphism rounded-3xl p-8 animate-pulse">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full animate-spin"></div>
-        <div className="text-white text-xl font-display font-semibold text-shadow">Loading...</div>
+        <div className="text-white text-xl font-display font-semibold text-shadow">
+          Loading...
+        </div>
       </div>
     </div>
   </div>
@@ -32,14 +42,14 @@ function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       if (token) {
         // First try to get user from localStorage for instant loading
         const storedUser = getCurrentUser();
         if (storedUser) {
           setUser(storedUser);
           setIsLoading(false);
-          
+
           // Then verify with server in background
           try {
             const response = await authAPI.getCurrentUser();
@@ -51,12 +61,12 @@ function App() {
               }
             }
           } catch (error) {
-            console.warn('Background auth verification failed:', error);
+            console.warn("Background auth verification failed:", error);
             // Keep using stored user data
           }
           return;
         }
-        
+
         // If no stored user, fetch from server
         try {
           const response = await authAPI.getCurrentUser();
@@ -67,12 +77,12 @@ function App() {
             removeAuthToken();
           }
         } catch (error) {
-          console.error('Auth check failed:', error);
+          console.error("Auth check failed:", error);
           removeAuthToken();
         }
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error("Auth check failed:", error);
       removeAuthToken();
     } finally {
       setIsLoading(false);
@@ -97,7 +107,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-red-600">
         {user && <Navbar user={user} onLogout={handleLogout} />}
-        
+
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route
@@ -110,12 +120,12 @@ function App() {
                 )
               }
             />
-            
+
             <Route
               path="/dashboard"
               element={
                 user ? (
-                  user.role === 'student' ? (
+                  user.role === "student" ? (
                     <StudentDashboard />
                   ) : (
                     <TeacherDashboard />
@@ -125,7 +135,7 @@ function App() {
                 )
               }
             />
-            
+
             <Route
               path="/login"
               element={
@@ -136,7 +146,18 @@ function App() {
                 )
               }
             />
-            
+
+            <Route
+              path="/teacher/manage-assignments"
+              element={
+                user && user.role === "teacher" ? (
+                  <ManageAssignments />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
