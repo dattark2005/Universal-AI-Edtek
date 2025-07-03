@@ -115,7 +115,9 @@ export const authAPI = {
   },
 
   getCurrentUser: async () => {
-    return await apiRequest('/auth/me');
+    return await apiRequest('/auth/me', {
+      method: 'GET',
+    });
   },
 };
 
@@ -199,6 +201,14 @@ export const eduAPI = {
   getTeacherClassrooms: async () => {
     const res = await apiRequest('/classrooms');
     return res.data.classrooms;
+  },
+  getStudentClassrooms: async () => {
+    const res = await apiRequest('/classrooms/student');
+    return res.data.classrooms || [];
+  },
+  getQuizResults: async () => {
+    const res = await apiRequest('/quiz-results');
+    return res.data.quizResults || [];
   },
   getSubmissions: async () => {
     const res = await apiRequest('/submissions');

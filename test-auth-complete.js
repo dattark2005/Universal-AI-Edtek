@@ -103,35 +103,14 @@ async function testLogin() {
 }
 
 async function testAuthenticatedEndpoint(token) {
-  console.log('\n🔒 Testing Authenticated Endpoint (GET /api/auth/me)...\n');
+  console.log('\n⏭️  Skipping /api/auth/me test (endpoint removed)\n');
   
   if (!token) {
     console.log('❌ No token available, skipping authenticated test');
     return;
   }
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      }
-    });
-
-    const result = await response.json();
-    
-    console.log(`📡 Response Status: ${response.status}`);
-    console.log('📊 Response Body:', JSON.stringify(result, null, 2));
-
-    if (response.ok && result.success) {
-      console.log('✅ Authenticated request successful!');
-    } else {
-      console.log('❌ Authenticated request failed!');
-    }
-  } catch (error) {
-    console.log('❌ Authenticated request error:', error.message);
-  }
+  console.log('✅ Token available, but /api/auth/me endpoint has been removed');
 }
 
 async function checkMongoDBConnection() {

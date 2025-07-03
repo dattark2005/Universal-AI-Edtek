@@ -23,6 +23,7 @@ import {
 } from "../../utils/storage";
 import { QuizResult, StudyPlan } from "../../types";
 import axios from "axios";
+import Loader from "../Layout/Loader";
 
 interface ExternalQuestion {
   id: number;
@@ -234,6 +235,11 @@ const QuizSection: React.FC = () => {
           correctAnswers,
           timeSpent,
           answers: finalAnswers,
+          questions: currentQuiz.map((q) => ({
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+          })),
           completedAt: new Date(),
         },
         {
@@ -603,53 +609,79 @@ const QuizSection: React.FC = () => {
               </div>
             </div>
 
-            <h3 className="text-2xl font-display font-semibold text-white mb-8 leading-relaxed">
-              {currentQuestion.question}
-            </h3>
+            {/* Back Button */}
+            <div className="flex gap-4 mb-4">
+              <button
+                onClick={() =>
+                  setCurrentQuestionIndex((idx) => Math.max(0, idx - 1))
+                }
+                disabled={currentQuestionIndex === 0}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Back
+              </button>
+            </div>
 
-            <div className="space-y-4">
-              {currentQuestion.options.map((option, index) => (
+            {/* Question and Options */}
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-white mb-4">
+                {currentQuestion.question}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentQuestion.options.map((option, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswer(idx)}
+                    className={`w-full py-3 px-6 rounded-xl font-medium transition-all duration-200 border-2 focus:outline-none
+                      ${
+                        answers[currentQuestionIndex] === idx
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-500 scale-105 shadow-glow"
+                          : "bg-white/10 text-white/80 border-white/20 hover:bg-white/20 hover:text-white"
+                      }
+                    `}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4">
+              {currentQuestionIndex < currentQuiz.length - 1 ? (
                 <button
-                  key={index}
-                  onClick={() => handleAnswer(index)}
-                  className={`w-full text-left p-6 rounded-2xl transition-all duration-300 border-2 group ${
-                    answers[currentQuestionIndex] === index
-                      ? "bg-gradient-to-r from-purple-500/30 to-pink-500/30 border-purple-400 text-white shadow-glow-purple scale-105"
-                      : "bg-white/5 border-white/20 text-white/80 hover:bg-white/10 hover:border-white/40 hover:scale-102"
-                  }`}
+                  onClick={nextQuestion}
+                  disabled={answers[currentQuestionIndex] === undefined}
+                  className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-3 rounded-2xl font-display font-semibold transition-all duration-300 shadow-glow hover:shadow-glow-lg hover:scale-105"
                 >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
-                        answers[currentQuestionIndex] === index
-                          ? "bg-white/30 text-white"
-                          : "bg-white/10 text-white/70 group-hover:bg-white/20"
-                      }`}
-                    >
-                      {String.fromCharCode(65 + index)}
-                    </div>
-                    <span className="font-medium text-lg">{option}</span>
-                  </div>
+                  Next
                 </button>
-              ))}
+              ) : (
+                <button
+                  onClick={() => completeQuiz(answers)}
+                  disabled={answers[currentQuestionIndex] === undefined}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-2xl font-display font-semibold transition-all duration-300 shadow-glow hover:shadow-glow-lg hover:scale-105"
+                >
+                  Submit Quiz
+                </button>
+              )}
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
 
-          <div className="flex justify-end">
-            <button
-              onClick={nextQuestion}
-              disabled={!hasAnswered}
-              className={`px-8 py-4 rounded-2xl font-display font-semibold transition-all duration-300 ${
-                hasAnswered
-                  ? "bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-glow hover:shadow-glow-lg hover:scale-105"
-                  : "bg-gray-500 text-gray-300 cursor-not-allowed"
-              }`}
-            >
-              {currentQuestionIndex === currentQuiz.length - 1
-                ? "Finish Quiz"
-                : "Next Question"}
-            </button>
-          </div>
+  if (loading) {
+    return <Loader text="Loading quizzes..." />;
+  }
+
+  if (!loading && availableSubjects.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <div className="glass-morphism rounded-3xl p-12 max-w-md mx-auto">
+          <h3 className="text-2xl font-display font-bold text-white mb-4">
+            No quizzes available
+          </h3>
         </div>
       </div>
     );
@@ -666,23 +698,9 @@ const QuizSection: React.FC = () => {
         </p>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="glass-morphism rounded-2xl p-8 max-w-md mx-auto">
-            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-2">
-              Loading Quiz...
-            </h3>
-            <p className="text-white/70">Fetching questions from Quiz API</p>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {subjectCards}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {subjectCards}
+      </div>
     </div>
   );
 };

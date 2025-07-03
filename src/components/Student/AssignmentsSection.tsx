@@ -10,6 +10,7 @@ import {
 import { mockAssignments } from "../../utils/mockData";
 import { Submission } from "../../types";
 import axios from "axios";
+import Loader from "../Layout/Loader";
 
 const API_BASE_URL = "http://localhost:5000"; // Change if your backend runs elsewhere
 
@@ -30,6 +31,7 @@ const AssignmentsSection: React.FC = () => {
   const [editFiles, setEditFiles] = useState<File[]>([]);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const user = getCurrentUser();
   const userClassrooms = user ? getUserClassrooms(user.id, "student") : [];
@@ -61,17 +63,6 @@ const AssignmentsSection: React.FC = () => {
     fetchAssignments();
   }, [user?.id]);
 
-  // Filter assignments for classrooms the student is in or public assignments
-  const studentAssignments = assignments.filter((assignment) => {
-    if (!assignment.classroomId) return true; // Show to all if no classroomId (public assignment)
-    // Handle both string and object forms
-    return userClassrooms.some(
-      (classroom) =>
-        classroom.id === assignment.classroomId ||
-        classroom.id === assignment.classroomId?._id
-    );
-  });
-
   // Get user's submissions
   const userSubmissions = user
     ? submissions.filter(
@@ -88,6 +79,7 @@ const AssignmentsSection: React.FC = () => {
   const handleSubmit = async (assignmentId: string) => {
     if (!user || (!submissionContent.trim() && selectedFiles.length === 0))
       return;
+    setUploading(true);
     try {
       const token = localStorage.getItem("authToken");
       const formData = new FormData();
@@ -114,6 +106,8 @@ const AssignmentsSection: React.FC = () => {
       setTimeout(() => setShowToast(false), 3000);
     } catch (err) {
       // handle error (optional)
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -229,32 +223,20 @@ const AssignmentsSection: React.FC = () => {
     }
   };
 
-  if (studentAssignments.length === 0) {
+  const studentAssignments = assignments;
+
+  if (loading) {
+    return <Loader text="Loading assignments..." />;
+  }
+
+  if (!loading && assignments.length === 0) {
     return (
-      <div className="text-center py-12">
-        <FileText className="w-16 h-16 text-white/50 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-white mb-2">
-          No Assignments
-        </h3>
-        <p className="text-white/70 mb-4">
-          {userClassrooms.length === 0
-            ? "Join a classroom to see assignments from your teachers."
-            : "Your teachers haven't assigned any work yet."}
-        </p>
-        {userClassrooms.length === 0 && (
-          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 max-w-md mx-auto">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="w-5 h-5 text-blue-300" />
-              <span className="text-blue-300 font-medium">
-                Join a Classroom
-              </span>
-            </div>
-            <p className="text-white/70 text-sm">
-              Go to the Classrooms section and use a class code to join your
-              teacher's classroom.
-            </p>
-          </div>
-        )}
+      <div className="text-center py-16">
+        <div className="glass-morphism rounded-3xl p-12 max-w-md mx-auto">
+          <h3 className="text-2xl font-display font-bold text-white mb-4">
+            No assignments available
+          </h3>
+        </div>
       </div>
     );
   }
@@ -345,26 +327,81 @@ const AssignmentsSection: React.FC = () => {
                               </div>
                               <ul className="list-disc list-inside">
                                 {submission.attachments.map(
-                                  (file: any, idx: number) => (
-                                    <li key={idx}>
-                                      <a
-                                        href={
-                                          file.url.startsWith("http")
-                                            ? file.url
-                                            : `${API_BASE_URL}${
-                                                file.url.startsWith("/")
-                                                  ? ""
-                                                  : "/"
-                                              }${file.url}`
-                                        }
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-300 underline hover:text-blue-400"
+                                  (file: any, idx: number) => {
+                                    const isImage =
+                                      file.mimeType &&
+                                      file.mimeType.startsWith("image/");
+                                    const isPDF =
+                                      file.mimeType === "application/pdf";
+                                    const isDoc =
+                                      file.mimeType &&
+                                      (file.mimeType.includes("msword") ||
+                                        file.mimeType.includes(
+                                          "officedocument"
+                                        ));
+                                    return (
+                                      <li
+                                        key={idx}
+                                        className="mb-4 flex items-center gap-4"
                                       >
-                                        {file.filename}
-                                      </a>
-                                    </li>
-                                  )
+                                        {isImage ? (
+                                          <a
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            <img
+                                              src={file.url}
+                                              alt={file.filename}
+                                              className="w-12 h-12 object-cover rounded shadow border border-white/20 hover:scale-105 transition-transform duration-200"
+                                            />
+                                          </a>
+                                        ) : (
+                                          <>
+                                            <span className="font-semibold text-white/80 flex items-center gap-2">
+                                              {isPDF ? (
+                                                <span className="inline-block w-5 h-5 bg-red-500 rounded text-white text-xs flex items-center justify-center font-bold">
+                                                  PDF
+                                                </span>
+                                              ) : isDoc ? (
+                                                <span className="inline-block w-5 h-5 bg-blue-500 rounded text-white text-xs flex items-center justify-center font-bold">
+                                                  DOC
+                                                </span>
+                                              ) : (
+                                                <FileText className="w-5 h-5 text-white/70" />
+                                              )}
+                                              {file.filename}
+                                            </span>
+                                            <button
+                                              onClick={() =>
+                                                window.open(
+                                                  file.url,
+                                                  "_blank",
+                                                  "noopener,noreferrer"
+                                                )
+                                              }
+                                              className="ml-2 px-4 py-2 bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white rounded-lg font-semibold shadow-glow flex items-center gap-2 transition-all duration-200"
+                                            >
+                                              <svg
+                                                className="w-5 h-5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                viewBox="0 0 24 24"
+                                              >
+                                                <path
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                  d="M15 10l4.553 4.553a.75.75 0 010 1.06L15 20M19.553 14.553H9a2 2 0 01-2-2V5.75A.75.75 0 017.75 5h8.5a.75.75 0 01.75.75V14.553z"
+                                                />
+                                              </svg>
+                                              Preview (Inline)
+                                            </button>
+                                          </>
+                                        )}
+                                      </li>
+                                    );
+                                  }
                                 )}
                               </ul>
                             </div>
@@ -449,8 +486,9 @@ const AssignmentsSection: React.FC = () => {
                       <button
                         onClick={() => handleSubmit(assignment.id)}
                         disabled={
-                          !submissionContent.trim() &&
-                          selectedFiles.length === 0
+                          uploading ||
+                          (!submissionContent.trim() &&
+                            selectedFiles.length === 0)
                         }
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-colors ${
                           submissionContent.trim() || selectedFiles.length > 0
@@ -458,8 +496,12 @@ const AssignmentsSection: React.FC = () => {
                             : "bg-gray-500 text-gray-300 cursor-not-allowed"
                         }`}
                       >
-                        <Send className="w-5 h-5" />
-                        Submit Assignment
+                        {uploading ? (
+                          <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                        ) : (
+                          <Send className="w-5 h-5" />
+                        )}
+                        {uploading ? "Uploading..." : "Submit Assignment"}
                       </button>
                       <button
                         onClick={() => setSelectedAssignment(null)}

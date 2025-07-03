@@ -8,17 +8,55 @@ import { AuthenticatedRequest } from '../types';
 import mongoose from 'mongoose';
 import multer from 'multer';
 import path from 'path';
+import cloudinary from '../config/cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads'));
+// Replace disk storage with Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const ext = path.extname(file.originalname); // e.g., .pdf
+    const name = path.basename(file.originalname, ext); // e.g., Assignment1
+
+    let resourceType = 'auto';
+    if (
+      file.mimetype === 'application/pdf' ||
+      file.mimetype === 'application/msword' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      file.mimetype === 'application/vnd.ms-powerpoint' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+      file.mimetype === 'application/vnd.ms-excel' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.mimetype === 'text/plain' ||
+      file.mimetype === 'application/zip' ||
+      file.mimetype === 'application/x-rar-compressed'
+    ) {
+      resourceType = 'raw';
+      return {
+        folder: 'assignments',
+        resource_type: resourceType,
+        public_id: name, // Use original filename (without extension)
+        format: ext.replace('.', '') // Preserve extension
+      };
+    } else if (file.mimetype.startsWith('image/')) {
+      resourceType = 'image';
+      return {
+        folder: 'assignments',
+        resource_type: resourceType,
+        public_id: name,
+        format: ext.replace('.', ''),
+        allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+      };
+    }
+    return {
+      folder: 'assignments',
+      resource_type: resourceType,
+      public_id: name,
+      format: ext.replace('.', ''),
+    };
   },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
 });
 const upload = multer({ storage });
 
@@ -39,7 +77,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res) => {
       // For students, get assignments from their classrooms
       const userClassrooms = await Classroom.find({ students: userId }).select('_id');
       const classroomIds = userClassrooms.map(c => c._id);
-      
+      console.log('Student', userId, 'classrooms:', classroomIds);
       query.$or = [
         { classroomId: { $in: classroomIds } },
         { classroomId: { $exists: false } } // Public assignments
@@ -126,6 +164,17 @@ router.post('/:id/submit', authenticateToken, requireRole(['student']), upload.a
       });
     }
 
+    // If assignment is for a specific classroom, check student membership
+    if (assignment.classroomId) {
+      const classroom = await Classroom.findById(assignment.classroomId);
+      if (!classroom || !classroom.students.map(id => id.toString()).includes(studentId.toString())) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not authorized to submit this assignment'
+        });
+      }
+    }
+
     // Check if assignment is still open
     if (new Date() > assignment.dueDate) {
       return res.status(400).json({
@@ -151,7 +200,8 @@ router.post('/:id/submit', authenticateToken, requireRole(['student']), upload.a
     if (files && files.length > 0) {
       attachments = files.map(file => ({
         filename: file.originalname,
-        url: `/uploads/${file.filename}`,
+        url: file.secure_url || file.path || file.url, // Always prefer secure_url
+        public_id: file.filename, // Cloudinary public_id
         size: file.size,
         mimeType: file.mimetype
       }));

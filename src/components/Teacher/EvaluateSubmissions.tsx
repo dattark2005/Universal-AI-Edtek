@@ -48,16 +48,18 @@ const EvaluateSubmissions: React.FC = () => {
   }, []);
 
   const handleGradeSubmission = async (submissionId: string) => {
-    const gradeNum = parseInt(grade);
+    const gradeNum = parseFloat(grade);
     if (gradeNum >= 0 && gradeNum <= 100 && feedback.trim()) {
       try {
         await eduAPI.gradeSubmission(submissionId, gradeNum, feedback.trim());
-        // Refresh submissions
-        const token = localStorage.getItem("authToken");
-        const submissionsRes = await axios.get("/api/submissions", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setSubmissions(submissionsRes.data.data.submissions || []);
+        // Optimistically update the local submissions state for immediate feedback
+        setSubmissions((prevSubs) =>
+          prevSubs.map((sub) =>
+            (sub.id || sub._id) === submissionId
+              ? { ...sub, grade: gradeNum, feedback: feedback.trim() }
+              : sub
+          )
+        );
         setGradingSubmission(null);
         setGrade("");
         setFeedback("");
@@ -275,24 +277,84 @@ const EvaluateSubmissions: React.FC = () => {
                           </div>
                           <ul className="list-disc list-inside">
                             {submission.attachments.map(
-                              (file: any, idx: number) => (
-                                <li key={idx}>
-                                  <a
-                                    href={
-                                      file.url.startsWith("http")
-                                        ? file.url
-                                        : `${API_BASE_URL}${
-                                            file.url.startsWith("/") ? "" : "/"
-                                          }${file.url}`
+                              (file: any, idx: number) => {
+                                const isImage =
+                                  file.mimeType &&
+                                  file.mimeType.startsWith("image/");
+                                const isPDF =
+                                  file.mimeType === "application/pdf";
+                                const isDoc =
+                                  file.mimeType &&
+                                  (file.mimeType.includes("msword") ||
+                                    file.mimeType.includes("officedocument"));
+                                return (
+                                  <li
+                                    key={
+                                      file.public_id ||
+                                      file.url ||
+                                      file.filename ||
+                                      idx
                                     }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-300 underline hover:text-blue-400"
+                                    className="mb-4 flex items-center gap-4"
                                   >
-                                    {file.filename}
-                                  </a>
-                                </li>
-                              )
+                                    {isImage ? (
+                                      <a
+                                        href={file.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <img
+                                          src={file.url}
+                                          alt={file.filename}
+                                          className="w-12 h-12 object-cover rounded shadow border border-white/20 hover:scale-105 transition-transform duration-200"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <>
+                                        <span className="font-semibold text-white/80 flex items-center gap-2">
+                                          {isPDF ? (
+                                            <span className="inline-block w-5 h-5 bg-red-500 rounded text-white text-xs flex items-center justify-center font-bold">
+                                              PDF
+                                            </span>
+                                          ) : isDoc ? (
+                                            <span className="inline-block w-5 h-5 bg-blue-500 rounded text-white text-xs flex items-center justify-center font-bold">
+                                              DOC
+                                            </span>
+                                          ) : (
+                                            <FileText className="w-5 h-5 text-white/70" />
+                                          )}
+                                          {file.filename}
+                                        </span>
+                                        <button
+                                          onClick={() =>
+                                            window.open(
+                                              file.url,
+                                              "_blank",
+                                              "noopener,noreferrer"
+                                            )
+                                          }
+                                          className="ml-2 px-4 py-2 bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white rounded-lg font-semibold shadow-glow flex items-center gap-2 transition-all duration-200"
+                                        >
+                                          <svg
+                                            className="w-5 h-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M15 10l4.553 4.553a.75.75 0 010 1.06L15 20M19.553 14.553H9a2 2 0 01-2-2V5.75A.75.75 0 017.75 5h8.5a.75.75 0 01.75.75V14.553z"
+                                            />
+                                          </svg>
+                                          Preview
+                                        </button>
+                                      </>
+                                    )}
+                                  </li>
+                                );
+                              }
                             )}
                           </ul>
                         </div>
@@ -316,7 +378,7 @@ const EvaluateSubmissions: React.FC = () => {
                             Grade (0-100)
                           </label>
                           <input
-                            type="number"
+                            type="text"
                             min="0"
                             max="100"
                             value={grade}
@@ -350,14 +412,14 @@ const EvaluateSubmissions: React.FC = () => {
                           disabled={
                             !grade ||
                             !feedback.trim() ||
-                            parseInt(grade) < 0 ||
-                            parseInt(grade) > 100
+                            parseFloat(grade) < 0 ||
+                            parseFloat(grade) > 100
                           }
                           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-colors ${
                             grade &&
                             feedback.trim() &&
-                            parseInt(grade) >= 0 &&
-                            parseInt(grade) <= 100
+                            parseFloat(grade) >= 0 &&
+                            parseFloat(grade) <= 100
                               ? "bg-green-500 hover:bg-green-600 text-white"
                               : "bg-gray-500 text-gray-300 cursor-not-allowed"
                           }`}

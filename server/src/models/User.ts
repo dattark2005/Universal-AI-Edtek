@@ -12,6 +12,7 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  googleId?: string;
 }
 
 const userSchema = new Schema<IUser>({
@@ -25,7 +26,7 @@ const userSchema = new Schema<IUser>({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: false,
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
   },
@@ -53,6 +54,11 @@ const userSchema = new Schema<IUser>({
   isEmailVerified: {
     type: Boolean,
     default: false
+  },
+  googleId: {
+    type: String,
+    required: false,
+    index: true
   }
 }, {
   timestamps: true,

@@ -113,8 +113,8 @@ router.post('/results', authenticateToken, requireRole(['student']), async (req:
     console.log('403: User role is not student:', req.user.role);
   }
   try {
-    const { subject, score, totalQuestions, correctAnswers, timeSpent, answers, completedAt } = req.body;
-    // Save result without quizId (for external quizzes)
+    const { subject, score, totalQuestions, correctAnswers, timeSpent, answers, completedAt, questions } = req.body;
+    // Save result with full questions and userAnswers
     const result = await QuizResult.create({
       userId: req.user!.id,
       subject,
@@ -122,7 +122,8 @@ router.post('/results', authenticateToken, requireRole(['student']), async (req:
       totalQuestions,
       correctAnswers,
       timeSpent,
-      answers,
+      userAnswers: answers,
+      questions: questions || [],
       completedAt: completedAt ? new Date(completedAt) : new Date()
     });
     res.status(201).json({

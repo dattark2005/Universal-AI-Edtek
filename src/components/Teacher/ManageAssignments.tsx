@@ -61,6 +61,7 @@ const ManageAssignments: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editAssignment, setEditAssignment] = useState<any>(null);
   const [editForm, setEditForm] = useState({
+    title: "",
     dueDate: "",
     description: "",
     maxPoints: "",
@@ -109,6 +110,7 @@ const ManageAssignments: React.FC = () => {
   const openEditModal = (assignment: any) => {
     setEditAssignment(assignment);
     setEditForm({
+      title: assignment.title || "",
       dueDate: assignment.dueDate
         ? new Date(assignment.dueDate).toISOString().slice(0, 16)
         : "",
@@ -141,6 +143,7 @@ const ManageAssignments: React.FC = () => {
       const res = await axios.patch(
         `/api/assignments/${editAssignment._id || editAssignment.id}`,
         {
+          title: editForm.title,
           dueDate: editForm.dueDate,
           description: editForm.description,
           maxPoints: Number(editForm.maxPoints),
@@ -322,6 +325,19 @@ const ManageAssignments: React.FC = () => {
               Edit Assignment
             </h2>
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={editForm.title}
+                  onChange={handleEditChange}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">
                   Due Date

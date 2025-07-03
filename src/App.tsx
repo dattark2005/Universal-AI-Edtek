@@ -10,6 +10,8 @@ import { authAPI, setAuthToken, removeAuthToken } from "./services/api";
 import { setCurrentUser, getCurrentUser } from "./utils/storage";
 import LoginPage from "./components/Auth/LoginPage";
 import Navbar from "./components/Layout/Navbar";
+import AuthCallback from "./components/Auth/AuthCallback";
+import ResetPassword from "./components/Auth/ResetPassword";
 
 // Lazy load dashboard components for better performance
 const StudentDashboard = lazy(() => import("./components/Student/Dashboard"));
@@ -157,6 +159,13 @@ function App() {
                 )
               }
             />
+
+            <Route
+              path="/auth/callback"
+              element={<AuthCallback onLogin={handleLogin} />}
+            />
+
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

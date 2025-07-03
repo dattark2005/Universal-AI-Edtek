@@ -14,6 +14,7 @@ import {
 import { getCurrentUser } from "../../utils/storage";
 import { SUBJECTS } from "../../utils/mockData";
 import axios from "axios";
+import Loader from "../Layout/Loader";
 
 const QuizResultsSection: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
@@ -24,6 +25,12 @@ const QuizResultsSection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
+  const [geminiAnalysis, setGeminiAnalysis] = useState<Record<string, string>>(
+    {}
+  );
+  const [expandedQuestions, setExpandedQuestions] = useState<
+    Record<string, boolean>
+  >({});
 
   const user = useMemo(() => getCurrentUser(), []);
 
@@ -134,15 +141,7 @@ const QuizResultsSection: React.FC = () => {
   });
 
   if (loading) {
-    return (
-      <div className="text-center py-16">
-        <div className="glass-morphism rounded-3xl p-12 max-w-md mx-auto">
-          <h3 className="text-2xl font-display font-bold text-white mb-4">
-            Loading Quiz Results...
-          </h3>
-        </div>
-      </div>
-    );
+    return <Loader text="Loading Quiz Results..." />;
   }
 
   if (error) {
@@ -157,7 +156,7 @@ const QuizResultsSection: React.FC = () => {
     );
   }
 
-  if (totalQuizzes === 0) {
+  if (!loading && totalQuizzes === 0) {
     return (
       <div className="text-center py-16">
         <div className="glass-morphism rounded-3xl p-12 max-w-md mx-auto">
@@ -311,21 +310,15 @@ const QuizResultsSection: React.FC = () => {
       <div className="space-y-4">
         {subjectCards.map(
           ({ subject, latestResult, previousResults, count }) => {
-            const isExpandable = count > 1;
+            const isExpanded = expandedSubject === subject;
+            const allAttempts = [latestResult, ...previousResults];
             return (
               <div
                 key={subject}
-                className={`glass-morphism rounded-2xl p-6 border border-white/20 card-hover${
-                  isExpandable ? " cursor-pointer" : ""
+                className={`glass-morphism rounded-2xl p-6 border border-white/20 card-hover transition-shadow duration-300 hover:shadow-glow-lg ${
+                  count > 1 ? "cursor-pointer" : ""
                 }`}
-                onClick={
-                  isExpandable
-                    ? () =>
-                        setExpandedSubject(
-                          expandedSubject === subject ? null : subject
-                        )
-                    : undefined
-                }
+                onClick={() => setExpandedSubject(isExpanded ? null : subject)}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   {/* Score Circle */}
@@ -333,7 +326,7 @@ const QuizResultsSection: React.FC = () => {
                     <div
                       className={`w-20 h-20 bg-gradient-to-r ${getScoreColor(
                         latestResult.score
-                      )} rounded-full flex items-center justify-center shadow-glow relative`}
+                      )} rounded-full flex items-center justify-center shadow-glow relative animate-glow`}
                     >
                       <span className="text-2xl font-display font-bold text-white">
                         {latestResult.score}%
@@ -381,9 +374,9 @@ const QuizResultsSection: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                        {isExpandable && (
-                          <p className="text-xs text-blue-300 mt-2">
-                            Click for previous scores
+                        {count > 1 && (
+                          <p className="text-xs text-blue-300 mt-2 animate-pulse">
+                            Click to view all attempts
                           </p>
                         )}
                       </div>
@@ -427,130 +420,176 @@ const QuizResultsSection: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                {/* Expandable previous scores */}
-                {isExpandable &&
-                  expandedSubject === subject &&
-                  previousResults.length > 0 && (
-                    <div className="mt-6 bg-white/5 rounded-xl p-4">
-                      <h4 className="text-white/80 font-semibold mb-2">
-                        Previous Scores
-                      </h4>
-                      <ul className="space-y-2">
-                        {previousResults.map((res, idx) => (
-                          <li key={res.id} className="flex flex-col gap-2">
+                {/* Expandable: Show all attempts for this subject */}
+                {isExpanded && (
+                  <div className="mt-6 space-y-4">
+                    {allAttempts.map((res, idx) => {
+                      const isAttemptExpanded = expandedQuizId === res.id;
+                      return (
+                        <div
+                          key={res.id}
+                          className={`glass-morphism rounded-xl p-4 border-2 border-white/20 shadow-glow card-hover transition-all duration-300 ${
+                            isAttemptExpanded ? "ring-2 ring-blue-400" : ""
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedQuizId(
+                              isAttemptExpanded ? null : res.id
+                            );
+                          }}
+                        >
+                          <div className="flex items-center gap-4">
                             <div
-                              className="flex items-center gap-4 cursor-pointer group"
-                              onClick={() =>
-                                setExpandedQuizId(
-                                  expandedQuizId === res.id ? null : res.id
-                                )
-                              }
+                              className={`w-12 h-12 bg-gradient-to-r ${getScoreColor(
+                                res.score
+                              )} rounded-full flex items-center justify-center shadow-glow`}
                             >
-                              <span className="text-white/70 text-sm">
-                                {new Date(res.completedAt).toLocaleDateString()}
-                                :
-                              </span>
-                              <span className="text-white font-bold">
+                              <span className="text-lg font-display font-bold text-white">
                                 {res.score}%
                               </span>
-                              <span className="text-white/50 text-xs">
-                                (
-                                {Math.round(
-                                  (res.score / 100) * res.totalQuestions
-                                )}
-                                /{res.totalQuestions} correct)
-                              </span>
-                              <span className="ml-auto text-blue-400 group-hover:underline text-xs">
-                                {expandedQuizId === res.id
-                                  ? "Hide Answers"
-                                  : "Show Answers"}
-                              </span>
                             </div>
-                            {/* Expandable: Show Q&A */}
-                            {expandedQuizId === res.id &&
-                              res.questions &&
-                              res.userAnswers && (
-                                <div className="mt-3 space-y-4">
-                                  {res.questions.map((q: any, qIdx: number) => {
-                                    const userAnsIdx = res.userAnswers[qIdx];
-                                    const isCorrect =
-                                      userAnsIdx === q.correctAnswer;
-                                    return (
-                                      <div
-                                        key={qIdx}
-                                        className={`rounded-xl p-4 border ${
-                                          isCorrect
-                                            ? "border-green-400 bg-green-500/10"
-                                            : "border-red-400 bg-red-500/10"
-                                        } shadow-sm`}
-                                      >
-                                        <div className="mb-2">
-                                          <span className="font-semibold text-white">
-                                            Q{qIdx + 1}:
+                            <div className="flex-1">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div>
+                                  <span className="text-white font-semibold">
+                                    {new Date(res.completedAt).toLocaleString()}
+                                  </span>
+                                  <span className="ml-2 text-white/60 text-xs">
+                                    {res.totalQuestions} Qs
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white/70 text-xs">
+                                    {Math.round(
+                                      (res.score / 100) * res.totalQuestions
+                                    )}
+                                    /{res.totalQuestions} correct
+                                  </span>
+                                  <span className="text-white/50 text-xs">
+                                    |
+                                  </span>
+                                  <span className="text-white/70 text-xs">
+                                    Time: {res.timeSpent || "-"}s
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="ml-4 text-blue-400 text-xs font-bold uppercase tracking-wider animate-fade-in">
+                              {isAttemptExpanded ? "Hide Q&A" : "Show Q&A"}
+                            </span>
+                          </div>
+                          {/* Expandable: Show Q&A for this attempt */}
+                          {isAttemptExpanded &&
+                            res.questions &&
+                            res.userAnswers && (
+                              <div className="mt-4 space-y-4 animate-fade-in">
+                                {res.questions.map((q: any, qIdx: number) => {
+                                  const userAnsIdx = res.userAnswers[qIdx];
+                                  const isCorrect =
+                                    userAnsIdx === q.correctAnswer;
+                                  return (
+                                    <div
+                                      key={qIdx}
+                                      className={`rounded-xl p-4 border-2 shadow-md transition-all duration-300 ${
+                                        isCorrect
+                                          ? "border-green-400 bg-gradient-to-r from-green-900/60 to-green-700/40"
+                                          : "border-red-400 bg-gradient-to-r from-red-900/60 to-red-700/40"
+                                      }`}
+                                    >
+                                      <div className="mb-2 flex items-center gap-2">
+                                        <span className="font-semibold text-white text-lg">
+                                          Q{qIdx + 1}:
+                                        </span>
+                                        <span className="ml-2 text-white/90 font-medium">
+                                          {q.question}
+                                        </span>
+                                        {isCorrect ? (
+                                          <span className="ml-2 text-green-300 font-bold">
+                                            ✔️ Correct
                                           </span>
-                                          <span className="ml-2 text-white/90 font-medium">
-                                            {q.question}
+                                        ) : (
+                                          <span className="ml-2 text-red-300 font-bold">
+                                            ❌ Incorrect
                                           </span>
-                                        </div>
-                                        <ul className="space-y-1 ml-4">
-                                          {q.options.map(
-                                            (opt: string, optIdx: number) => (
-                                              <li
-                                                key={optIdx}
-                                                className={`px-2 py-1 rounded-lg text-sm font-mono ${
-                                                  optIdx === q.correctAnswer
-                                                    ? "bg-green-400/30 text-green-200 font-bold"
-                                                    : optIdx === userAnsIdx
-                                                    ? "bg-blue-400/20 text-blue-200"
-                                                    : "text-white/70"
-                                                }`}
-                                              >
-                                                {optIdx === q.correctAnswer && (
+                                        )}
+                                      </div>
+                                      <ul className="space-y-1 ml-4">
+                                        {q.options.map(
+                                          (opt: string, optIdx: number) => (
+                                            <li
+                                              key={optIdx}
+                                              className={`px-2 py-1 rounded-lg text-sm font-mono flex items-center gap-2 transition-all duration-200
+                                          ${
+                                            optIdx === q.correctAnswer
+                                              ? "bg-green-400/30 text-green-200 font-bold border border-green-400"
+                                              : ""
+                                          }
+                                          ${
+                                            optIdx === userAnsIdx &&
+                                            optIdx !== q.correctAnswer
+                                              ? "bg-blue-400/20 text-blue-200 border border-blue-400"
+                                              : ""
+                                          }
+                                          ${
+                                            optIdx !== q.correctAnswer &&
+                                            optIdx !== userAnsIdx
+                                              ? "text-white/70 border border-white/10"
+                                              : ""
+                                          }
+                                        `}
+                                            >
+                                              {optIdx === q.correctAnswer && (
+                                                <span className="mr-1">✔️</span>
+                                              )}
+                                              {optIdx === userAnsIdx &&
+                                                optIdx !== q.correctAnswer && (
                                                   <span className="mr-1">
-                                                    ✔️
+                                                    ➤
                                                   </span>
                                                 )}
-                                                {optIdx === userAnsIdx &&
-                                                  optIdx !==
-                                                    q.correctAnswer && (
-                                                    <span className="mr-1">
-                                                      ➤
-                                                    </span>
-                                                  )}
-                                                {opt}
-                                              </li>
-                                            )
-                                          )}
-                                        </ul>
-                                        <div className="mt-2 text-xs text-white/60">
-                                          Your answer:{" "}
-                                          <span
-                                            className={
-                                              isCorrect
-                                                ? "text-green-300 font-bold"
-                                                : "text-red-300 font-bold"
-                                            }
-                                          >
-                                            {typeof userAnsIdx === "number"
-                                              ? q.options[userAnsIdx]
-                                              : "No answer"}
+                                              {opt}
+                                            </li>
+                                          )
+                                        )}
+                                      </ul>
+                                      <div className="mt-2 text-xs text-white/60">
+                                        Your answer:{" "}
+                                        <span
+                                          className={
+                                            isCorrect
+                                              ? "text-green-300 font-bold"
+                                              : "text-red-300 font-bold"
+                                          }
+                                        >
+                                          {typeof userAnsIdx === "number"
+                                            ? q.options[userAnsIdx]
+                                            : "No answer"}
+                                        </span>
+                                        <span className="ml-2">
+                                          | Correct answer:{" "}
+                                          <span className="text-green-300 font-bold">
+                                            {q.options[q.correctAnswer]}
                                           </span>
-                                          {q.explanation && (
-                                            <div className="mt-1 text-white/50 italic">
-                                              Explanation: {q.explanation}
-                                            </div>
-                                          )}
-                                        </div>
+                                        </span>
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                                      {q.explanation && (
+                                        <div className="mt-2 text-xs text-white/70 italic border-l-4 border-blue-400 pl-3 bg-blue-900/30 rounded">
+                                          <span className="font-semibold text-blue-200">
+                                            Explanation:
+                                          </span>{" "}
+                                          {q.explanation}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           }

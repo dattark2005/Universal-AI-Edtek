@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
-import { User, BookOpen, GraduationCap, Sparkles, Star, Eye, EyeOff } from 'lucide-react';
-import { User as UserType } from '../../types';
-import { authAPI, setAuthToken } from '../../services/api';
+import React, { useState } from "react";
+import {
+  User,
+  BookOpen,
+  GraduationCap,
+  Sparkles,
+  Star,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { User as UserType } from "../../types";
+import { authAPI, setAuthToken } from "../../services/api";
+import axios from "axios";
 
 interface LoginPageProps {
   onLogin: (user: UserType) => void;
@@ -11,36 +20,38 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'student' as 'student' | 'teacher'
+    name: "",
+    email: "",
+    password: "",
+    role: "student" as "student" | "teacher",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
-    setError('');
+    setError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       let response;
-      
+
       if (isLogin) {
         // Login request
         response = await authAPI.login({
           email: formData.email,
-          password: formData.password
+          password: formData.password,
         });
       } else {
         // Registration request
@@ -48,14 +59,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          role: formData.role
+          role: formData.role,
         });
       }
 
       if (response.success) {
         // Store auth token
         setAuthToken(response.data.token);
-        
+
         // Store user data
         const userData: UserType = {
           id: response.data.user.id,
@@ -64,35 +75,29 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           avatar: response.data.user.avatar,
           role: response.data.user.role,
           bio: response.data.user.bio,
-          joinedAt: new Date(response.data.user.joinedAt || response.data.user.createdAt)
+          joinedAt: new Date(
+            response.data.user.joinedAt || response.data.user.createdAt
+          ),
         };
-        
-        localStorage.setItem('currentUser', JSON.stringify(userData));
+
+        localStorage.setItem("currentUser", JSON.stringify(userData));
         onLogin(userData);
       } else {
-        setError(response.message || 'Authentication failed');
+        setError(response.message || "Authentication failed");
       }
     } catch (err: any) {
-      console.error('Auth error:', err);
-      setError(err.message || 'Authentication failed. Please check your connection and try again.');
+      console.error("Auth error:", err);
+      setError(
+        err.message ||
+          "Authentication failed. Please check your connection and try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError('');
-
-    try {
-      // For now, we'll show a message that Google OAuth needs to be set up
-      setError('Google OAuth is not configured yet. Please use email/password authentication.');
-    } catch (err: any) {
-      console.error('Google auth error:', err);
-      setError(err.message || 'Google authentication failed');
-    } finally {
-      setLoading(false);
-    }
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:5000/api/auth/google"; // Use your backend URL if different
   };
 
   return (
@@ -117,7 +122,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <h1 className="text-4xl font-display font-bold text-white mb-3 text-shadow-lg bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
             EduAI Platform
           </h1>
-          <p className="text-white/80 font-medium text-lg">Your AI-powered learning companion</p>
+          <p className="text-white/80 font-medium text-lg">
+            Your AI-powered learning companion
+          </p>
           <div className="flex items-center justify-center gap-1 mt-2">
             {[...Array(5)].map((_, i) => (
               <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
@@ -136,8 +143,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             onClick={() => setIsLogin(true)}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
               isLogin
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? "bg-white/20 text-white"
+                : "text-white/70 hover:text-white hover:bg-white/10"
             }`}
           >
             Login
@@ -146,8 +153,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             onClick={() => setIsLogin(false)}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
               !isLogin
-                ? 'bg-white/20 text-white'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? "bg-white/20 text-white"
+                : "text-white/70 hover:text-white hover:bg-white/10"
             }`}
           >
             Register
@@ -183,7 +190,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
           <div className="relative">
             <input
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               name="password"
               placeholder="Password"
               value={formData.password}
@@ -196,7 +203,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
             </button>
           </div>
 
@@ -208,8 +219,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 onChange={handleInputChange}
                 className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
-                <option value="student" className="bg-gray-800">I'm a Student</option>
-                <option value="teacher" className="bg-gray-800">I'm a Teacher</option>
+                <option value="student" className="bg-gray-800">
+                  I'm a Student
+                </option>
+                <option value="teacher" className="bg-gray-800">
+                  I'm a Teacher
+                </option>
               </select>
             </div>
           )}
@@ -219,11 +234,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             disabled={loading}
             className={`w-full py-4 px-6 rounded-2xl font-display font-semibold transition-all duration-300 ${
               loading
-                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                : 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow hover:shadow-glow-lg hover:scale-105'
+                ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+                : "bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow hover:shadow-glow-lg hover:scale-105"
             }`}
           >
-            {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+            {loading
+              ? "Please wait..."
+              : isLogin
+              ? "Sign In"
+              : "Create Account"}
           </button>
         </form>
 
@@ -233,7 +252,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <div className="w-full border-t border-white/20"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-transparent text-white/60">Or continue with</span>
+              <span className="px-2 bg-transparent text-white/60">
+                Or continue with
+              </span>
             </div>
           </div>
 
@@ -241,7 +262,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             onClick={handleGoogleLogin}
             disabled={loading}
             className={`w-full mt-4 bg-white text-neutral-800 py-4 px-6 rounded-2xl font-display font-semibold flex items-center justify-center gap-3 transition-all duration-300 shadow-card hover:shadow-card-hover hover:scale-105 group ${
-              loading ? 'opacity-50 cursor-not-allowed' : ''
+              loading ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
             <div className="w-6 h-6 bg-gradient-to-r from-blue-500 via-red-500 to-yellow-500 rounded-full group-hover:animate-spin"></div>
