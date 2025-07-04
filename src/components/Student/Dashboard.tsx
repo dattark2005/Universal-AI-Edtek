@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, Trophy, FileText, BarChart3, User, Users, Sparkles, Award, MessageCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import QuizSection from './QuizSection';
 import StudyPlansSection from './StudyPlansSection';
 import LeaderboardSection from './LeaderboardSection';
@@ -8,12 +9,46 @@ import ProfileSection from '../Profile/ProfileSection';
 import ClassroomSection from '../Classroom/ClassroomSection';
 import QuizResultsSection from './QuizResultsSection';
 import GeminiChatbot from '../AI/GeminiChatbot';
+import axios from 'axios';
 
 type ActiveSection = 'quiz' | 'study-plans' | 'leaderboard' | 'assignments' | 'profile' | 'classrooms' | 'quiz-results';
 
-const StudentDashboard: React.FC = () => {
+const StudentDashboard: React.FC<{ user: any; setUser: (user: any) => void }> = ({ user, setUser }) => {
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState<ActiveSection>('quiz');
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [quizzes, setQuizzes] = useState([]);
+  const [classrooms, setClassrooms] = useState([]);
+
+  useEffect(() => {
+    if (location.state && location.state.section) {
+      setActiveSection(location.state.section);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const quizRes = await axios.get('/api/quizzes/user', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setQuizzes(quizRes.data.data.quizzes || []);
+        const classroomRes = await axios.get('/api/classrooms', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setClassrooms(classroomRes.data.data.classrooms || []);
+      } catch (err) {
+        setQuizzes([]);
+        setClassrooms([]);
+      }
+    };
+    if (user?.id) fetchStats();
+  }, [user?.id]);
+
+  const quizzesTaken = quizzes.length;
+  const averageScore = quizzes.length > 0 ? Math.round(quizzes.reduce((sum, q) => sum + q.score, 0) / quizzes.length) : 0;
+  const classroomsCount = classrooms.length;
 
   const sections = [
     { id: 'quiz' as const, name: 'Take Quiz', icon: BookOpen, color: 'from-primary-500 to-primary-600' },
@@ -40,7 +75,7 @@ const StudentDashboard: React.FC = () => {
       case 'classrooms':
         return <ClassroomSection />;
       case 'profile':
-        return <ProfileSection />;
+        return <ProfileSection user={user} setUser={setUser} />;
       default:
         return <QuizSection />;
     }

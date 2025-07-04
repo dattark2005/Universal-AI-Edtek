@@ -46,10 +46,10 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             />
             <div
               className="text-sm cursor-pointer"
-              onClick={() => navigate("/student/profile")}
+              onClick={() => navigate('/dashboard', { state: { section: 'profile' } })}
               title="Go to Profile"
             >
-              <p className="text-white font-display font-semibold underline hover:text-blue-300">
+              <p className="text-white font-display font-semibold">
                 {user.name}
               </p>
               <p className="text-white/70 capitalize font-medium">

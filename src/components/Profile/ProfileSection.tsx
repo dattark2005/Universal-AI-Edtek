@@ -1,17 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { User, Edit3, Save, X, Calendar, Mail, BookOpen, Eye, EyeOff } from "lucide-react";
+import { User, Edit3, Save, X, Calendar, Mail, BookOpen, Eye, EyeOff, Pencil } from "lucide-react";
 import {
   getCurrentUser,
   updateUserProfile,
   getUserQuizResults,
   getUserClassrooms,
+  setCurrentUser,
 } from "../../utils/storage";
 import { eduAPI } from "../../services/api";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../../utils/cropImage';
+import ReactDOM from 'react-dom';
 
-const ProfileSection: React.FC = () => {
-  const [user, setUser] = useState(getCurrentUser());
+interface ProfileSectionProps {
+  user: any;
+  setUser?: (user: any) => void;
+}
+
+const ProfileSection: React.FC<ProfileSectionProps> = ({ user, setUser }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: user?.name || "",
@@ -28,6 +36,14 @@ const ProfileSection: React.FC = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
 
   const navigate = useNavigate();
 
@@ -68,7 +84,10 @@ const ProfileSection: React.FC = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       updateUserProfile(editForm);
-      setUser({ ...user, ...editForm });
+      if (setUser) {
+        setUser({ ...user, ...editForm });
+        setCurrentUser({ ...user, ...editForm });
+      }
       setIsEditing(false);
     } catch (err) {
       // handle error
@@ -83,6 +102,58 @@ const ProfileSection: React.FC = () => {
     setIsEditing(false);
   };
 
+  const handleAvatarEdit = () => {
+    setShowCropper(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedImage(e.target.files[0]);
+      setShowCropper(true);
+    }
+  };
+
+  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleUploadCroppedAvatar = async () => {
+    if (!selectedImage || !croppedAreaPixels) return;
+    setAvatarUploading(true);
+    try {
+      const croppedBlob = await getCroppedImg(
+        URL.createObjectURL(selectedImage),
+        croppedAreaPixels
+      );
+      const formData = new FormData();
+      formData.append('file', croppedBlob, 'avatar.jpg');
+      const token = localStorage.getItem('authToken');
+      const uploadRes = await axios.post('/api/upload', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const avatarUrl = uploadRes.data.data.url;
+      // Update user profile with new avatar
+      await axios.put(
+        '/api/users/profile',
+        { avatar: avatarUrl },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (setUser) {
+        setUser({ ...user, avatar: avatarUrl });
+        setCurrentUser({ ...user, avatar: avatarUrl });
+      }
+      setShowCropper(false);
+      setSelectedImage(null);
+    } catch (err) {
+      // handle error
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-white mb-6">Profile</h2>
@@ -91,11 +162,162 @@ const ProfileSection: React.FC = () => {
         {/* Profile Header */}
         <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
           <div className="flex items-start gap-6">
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-24 h-24 rounded-full border-4 border-white/30"
-            />
+            <div className="relative w-24 h-24">
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-24 h-24 rounded-full border-4 border-white/30 object-cover"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-3xl font-bold text-white border-4 border-white/30 select-none">
+                  {user.name
+                    .split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </div>
+              )}
+              {isEditing && (
+                <>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="avatar-upload-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('avatar-upload-input')?.click()}
+                    className="absolute bottom-2 right-2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg border border-white flex items-center justify-center transition"
+                    title="Edit Photo"
+                  >
+                    <Pencil className="w-5 h-5 text-purple-600" />
+                  </button>
+                  {user.avatar && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowRemoveConfirm(true)}
+                        className="absolute top-2 right-2 bg-red-500/90 hover:bg-red-600 text-white p-2 rounded-full shadow-lg border border-white flex items-center justify-center transition"
+                        title="Remove Avatar"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                      {showRemoveConfirm && ReactDOM.createPortal(
+                        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                          <div className="bg-white/95 rounded-2xl shadow-2xl p-6 w-[340px] max-w-full flex flex-col items-center relative animate-fade-in">
+                            <h3 className="text-lg font-bold mb-4 text-gray-800">Remove Profile Picture?</h3>
+                            <p className="text-gray-700 mb-6 text-center">Are you sure you want to remove your profile picture? This action cannot be undone.</p>
+                            <div className="flex gap-4">
+                              <button
+                                onClick={async () => {
+                                  setRemovingAvatar(true);
+                                  try {
+                                    const token = localStorage.getItem('authToken');
+                                    await axios.delete('/api/users/avatar', {
+                                      headers: { Authorization: `Bearer ${token}` },
+                                    });
+                                    // Fetch the latest user profile
+                                    const res = await axios.get('/api/users/profile', {
+                                      headers: { Authorization: `Bearer ${token}` },
+                                    });
+                                    if (res.data && res.data.success && res.data.data && res.data.data.user) {
+                                      if (setUser) {
+                                        setUser(res.data.data.user);
+                                        setCurrentUser(res.data.data.user);
+                                      }
+                                    } else {
+                                      if (setUser) {
+                                        setUser({ ...user, avatar: undefined });
+                                        setCurrentUser({ ...user, avatar: undefined });
+                                      }
+                                    }
+                                    setShowRemoveConfirm(false);
+                                  } catch (err) {
+                                    // handle error
+                                  } finally {
+                                    setRemovingAvatar(false);
+                                  }
+                                }}
+                                className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold shadow-glow transition"
+                                disabled={removingAvatar}
+                              >
+                                {removingAvatar ? 'Removing...' : 'Yes, Remove'}
+                              </button>
+                              <button
+                                onClick={() => setShowRemoveConfirm(false)}
+                                className="px-5 py-2 bg-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-400 transition"
+                                disabled={removingAvatar}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>,
+                        document.body
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            {showCropper && selectedImage && ReactDOM.createPortal(
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                <div className="bg-white/95 rounded-2xl shadow-2xl p-6 w-[340px] max-w-full flex flex-col items-center relative animate-fade-in">
+                  <h3 className="text-lg font-bold mb-2 text-gray-800">Adjust & Crop Photo</h3>
+                  <div className="relative w-64 h-64 bg-gray-200 rounded-xl overflow-hidden">
+                    <Cropper
+                      image={URL.createObjectURL(selectedImage)}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={1}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={onCropComplete}
+                      cropShape="round"
+                      showGrid={false}
+                    />
+                  </div>
+                  <div className="w-full flex flex-col items-center mt-4">
+                    <input
+                      type="range"
+                      min={1}
+                      max={3}
+                      step={0.01}
+                      value={zoom}
+                      onChange={e => setZoom(Number(e.target.value))}
+                      className="w-48 mb-2 accent-purple-500"
+                    />
+                    <div className="flex gap-4 mt-2">
+                      <button
+                        onClick={handleUploadCroppedAvatar}
+                        className="px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold shadow-glow hover:scale-105 transition"
+                        disabled={avatarUploading}
+                      >
+                        {avatarUploading ? 'Saving...' : 'Crop & Save'}
+                      </button>
+                      <button
+                        onClick={() => { setShowCropper(false); setSelectedImage(null); }}
+                        className="px-5 py-2 bg-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-400 transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl"
+                    onClick={() => { setShowCropper(false); setSelectedImage(null); }}
+                    title="Close"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>,
+              document.body
+            )}
 
             <div className="flex-1">
               {isEditing ? (
@@ -113,7 +335,7 @@ const ProfileSection: React.FC = () => {
                     onChange={(e) =>
                       setEditForm({ ...editForm, bio: e.target.value })
                     }
-                    placeholder="Tell us about yourself..."
+                    placeholder="Tell about yourself..."
                     rows={3}
                     className="w-full bg-white/10 border border-white/30 rounded-lg p-3 text-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   />
@@ -144,7 +366,7 @@ const ProfileSection: React.FC = () => {
                       onClick={() => setIsEditing(true)}
                       className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                     >
-                      <Edit3 className="w-4 h-4" />
+                      <Edit3 className="w-3 h-3" />
                     </button>
                   </div>
                   <div className="flex items-center gap-2 mb-3">

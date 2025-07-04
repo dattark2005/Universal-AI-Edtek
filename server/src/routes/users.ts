@@ -2,6 +2,7 @@ import express from 'express';
 import User from '../models/User';
 import { authenticateToken } from '../middleware/auth';
 import { AuthenticatedRequest } from '../types';
+import cloudinary from '../config/cloudinary';
 
 const router = express.Router();
 
@@ -63,6 +64,36 @@ router.put('/profile', authenticateToken, async (req: AuthenticatedRequest, res)
       success: false,
       message: 'Server error updating profile'
     });
+  }
+});
+
+// @desc    Remove user avatar
+// @route   DELETE /api/users/avatar
+// @access  Private
+router.delete('/avatar', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (user.avatar && user.avatar.includes('res.cloudinary.com')) {
+      // Extract public_id from the URL
+      const matches = user.avatar.match(/\/avatars\/([^\.\/]+)\./);
+      if (matches && matches[1]) {
+        const publicId = `avatars/${matches[1]}`;
+        try {
+          await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+        } catch (e) {
+          console.warn('Failed to delete Cloudinary avatar:', e);
+        }
+      }
+    }
+    user.avatar = undefined;
+    await user.save();
+    res.json({ success: true, message: 'Avatar removed' });
+  } catch (error: any) {
+    console.error('Remove avatar error:', error);
+    res.status(500).json({ success: false, message: 'Server error removing avatar' });
   }
 });
 

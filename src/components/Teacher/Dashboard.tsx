@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Upload,
   CheckSquare,
@@ -12,18 +12,27 @@ import EvaluateSubmissions from "./EvaluateSubmissions";
 import StudyPlanManager from "./StudyPlanManager";
 import ProfileSection from "../Profile/ProfileSection";
 import ClassroomSection from "../Classroom/ClassroomSection";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import ManageAssignments from "./ManageAssignments";
 
 type ActiveSection =
   | "upload"
   | "evaluate"
   | "study-plans"
   | "classrooms"
+  | "manage-assignments"
   | "profile";
 
-const TeacherDashboard: React.FC = () => {
+const TeacherDashboard: React.FC<{ user: any; setUser: (user: any) => void }> = ({ user, setUser }) => {
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState<ActiveSection>("upload");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.state && location.state.section) {
+      setActiveSection(location.state.section);
+    }
+  }, [location.state]);
 
   const sections = [
     {
@@ -51,6 +60,12 @@ const TeacherDashboard: React.FC = () => {
       color: "from-secondary-500 to-secondary-600",
     },
     {
+      id: "manage-assignments" as const,
+      name: "Manage Assignments",
+      icon: Sparkles,
+      color: "from-yellow-500 to-orange-500",
+    },
+    {
       id: "profile" as const,
       name: "Profile",
       icon: User,
@@ -68,8 +83,10 @@ const TeacherDashboard: React.FC = () => {
         return <StudyPlanManager />;
       case "classrooms":
         return <ClassroomSection />;
+      case "manage-assignments":
+        return <ManageAssignments />;
       case "profile":
-        return <ProfileSection />;
+        return <ProfileSection user={user} setUser={setUser} />;
       default:
         return <UploadAssignment />;
     }
@@ -130,21 +147,6 @@ const TeacherDashboard: React.FC = () => {
                     </button>
                   );
                 })}
-                <button
-                  onClick={() => navigate("/teacher/manage-assignments")}
-                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 group text-white/70 hover:text-white hover:bg-white/10 hover:scale-105"
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 group-hover:bg-white/20 transition-all duration-300">
-                    <span role="img" aria-label="manage">
-                      🗂️
-                    </span>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-display font-semibold">
-                      Manage Assignments
-                    </div>
-                  </div>
-                </button>
               </nav>
             </div>
 

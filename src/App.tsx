@@ -18,6 +18,7 @@ import ChooseRolePage from "./pages/ChooseRolePage";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import VerifyEmailCodePage from "./pages/VerifyEmailCodePage";
+import ProfileSection from "./components/Profile/ProfileSection";
 
 // Lazy load dashboard components for better performance
 const StudentDashboard = lazy(() => import("./components/Student/Dashboard"));
@@ -136,9 +137,9 @@ function App() {
               element={
                 user ? (
                   user.role === "student" ? (
-                    <StudentDashboard />
+                    <StudentDashboard user={user} setUser={setUser} />
                   ) : (
-                    <TeacherDashboard />
+                    <TeacherDashboard user={user} setUser={setUser} />
                   )
                 ) : (
                   <Navigate to="/" replace />
@@ -188,6 +189,27 @@ function App() {
 
 
             <Route path="/verify-email-code" element={<VerifyEmailCodePage />} />
+
+            <Route
+              path="/student/profile"
+              element={
+                user && user.role === "student" ? (
+                  <ProfileSection user={user} setUser={setUser} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/teacher/profile"
+              element={
+                user && user.role === "teacher" ? (
+                  <ProfileSection user={user} setUser={setUser} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
