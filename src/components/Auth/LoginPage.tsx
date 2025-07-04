@@ -11,6 +11,7 @@ import {
 import { User as UserType } from "../../types";
 import { authAPI, setAuthToken } from "../../services/api";
 import axios from "axios";
+import { useNavigate } from 'react-router-dom';
 
 interface LoginPageProps {
   onLogin: (user: UserType) => void;
@@ -34,14 +35,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showVerifyNotice, setShowVerifyNotice] = useState(false);
+  const [showResendVerify, setShowResendVerify] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
-    role: "student" as "student" | "teacher",
+    role: "" as "student" | "teacher" | "",
   });
+
+  const navigate = useNavigate();
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -76,7 +81,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       let response;
 
       if (isLogin) {
-        // Login request
         response = await authAPI.login({
           email: formData.email,
           password: formData.password,
@@ -92,11 +96,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         if (response.success) {
           setShowVerifyNotice(true);
           setLoading(false);
+          // Redirect to code entry page with email prefilled
+          navigate('/verify-email-code', { state: { email: formData.email, password: formData.password } });
           return;
         }
       }
 
-      if (response.success) {
+      if (response && response.success) {
         // Store auth token
         setAuthToken(response.data.token);
 
@@ -125,15 +131,36 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           return;
         }
         onLogin(userData);
-      } else {
+      } else if (response && response.message) {
         setError(response.message || "Authentication failed");
       }
     } catch (err: any) {
-      console.error("Auth error:", err);
+      // Check for unverified email error here
+      if (
+        err.message === "Please verify your email before logging in." ||
+        err.response?.data?.message === "Please verify your email before logging in."
+      ) {
+        await axios.post("/api/auth/resend-verification", { email: formData.email });
+        navigate("/verify-email-code", { state: { email: formData.email, password: formData.password } });
+        return;
+      }
       setError(
         err.message ||
           "Authentication failed. Please check your connection and try again."
       );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendMessage("");
+    setLoading(true);
+    try {
+      const res = await axios.post("/api/auth/resend-verification", { email: formData.email });
+      setResendMessage(res.data.message || "Verification email sent. Please check your inbox.");
+    } catch (err: any) {
+      setResendMessage(err.response?.data?.message || "Failed to resend verification email.");
     } finally {
       setLoading(false);
     }
@@ -186,6 +213,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <p className="text-blue-200 text-sm text-center">
               Registration successful! Please check your email to verify your account before logging in.
             </p>
+          </div>
+        )}
+
+        {showResendVerify && (
+          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 mb-6 text-center">
+            <p className="text-yellow-200 text-sm mb-2">Your email is not verified. Please check your inbox for a verification link.</p>
+            <button
+              type="button"
+              className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+              onClick={handleResendVerification}
+              disabled={loading}
+            >
+              {loading ? "Resending..." : "Resend Verification Email"}
+            </button>
+            {resendMessage && <div className="mt-2 text-xs text-white">{resendMessage}</div>}
           </div>
         )}
 
@@ -282,20 +324,38 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           )}
 
           {!isLogin && (
-            <div>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              >
-                <option value="student" className="bg-gray-800">
-                  I'm a Student
-                </option>
-                <option value="teacher" className="bg-gray-800">
-                  I'm a Teacher
-                </option>
-              </select>
+            <div className="w-full">
+              <div className="mb-2 text-white/80 font-medium text-center">Choose Role</div>
+              <div className="flex flex-col gap-4">
+                <div
+                  className={`glass-morphism py-4 px-6 rounded-2xl border-2 transition-all duration-200 cursor-pointer w-full text-center shadow-lg ${formData.role === 'student' ? 'border-blue-500 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 shadow-blue-500/30 scale-105 ring-2 ring-blue-400' : 'border-white/20 bg-white/5 hover:scale-105'}`}
+                  onClick={() => setFormData({ ...formData, role: 'student' })}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value="student"
+                    checked={formData.role === 'student'}
+                    onChange={() => setFormData({ ...formData, role: 'student' })}
+                    className="hidden"
+                  />
+                  <div className="text-lg font-semibold text-white mb-1 text-center">I am a Student</div>
+                </div>
+                <div
+                  className={`glass-morphism py-4 px-6 rounded-2xl border-2 transition-all duration-200 cursor-pointer w-full text-center shadow-lg ${formData.role === 'teacher' ? 'border-blue-500 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 shadow-blue-500/30 scale-105 ring-2 ring-blue-400' : 'border-white/20 bg-white/5 hover:scale-105'}`}
+                  onClick={() => setFormData({ ...formData, role: 'teacher' })}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value="teacher"
+                    checked={formData.role === 'teacher'}
+                    onChange={() => setFormData({ ...formData, role: 'teacher' })}
+                    className="hidden"
+                  />
+                  <div className="text-lg font-semibold text-white mb-1 text-center">I am a Teacher</div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -315,10 +375,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               : "Create Account"}
           </button>
         </form>
-
-         <div className="mt-4 text-center">
-          <a href="/forgot-password" className="text-indigo-600 hover:underline text-sm">Forgot Password?</a>
-        </div>
 
         <div className="mt-6">
           <div className="relative">

@@ -17,7 +17,7 @@ import SetPassword from "./components/Auth/SetPassword";
 import ChooseRolePage from "./pages/ChooseRolePage";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
+import VerifyEmailCodePage from "./pages/VerifyEmailCodePage";
 
 // Lazy load dashboard components for better performance
 const StudentDashboard = lazy(() => import("./components/Student/Dashboard"));
@@ -186,7 +186,8 @@ function App() {
 
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+            <Route path="/verify-email-code" element={<VerifyEmailCodePage />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

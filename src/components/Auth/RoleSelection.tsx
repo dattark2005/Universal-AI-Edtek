@@ -32,29 +32,37 @@ const RoleSelection: React.FC<RoleSelectionProps> = ({ onRoleSelected }) => {
           <p className="text-white/80 font-medium text-lg">Select your role to continue</p>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3">
-            <label className="flex items-center gap-2 text-white/90 cursor-pointer">
+          <div className="flex flex-col gap-6 justify-center w-full">
+            {/* Student Box */}
+            <div
+              className={`glass-morphism py-4 px-6 rounded-2xl border-2 transition-all duration-200 cursor-pointer w-full text-center shadow-lg ${role === 'student' ? 'border-blue-500 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 shadow-blue-500/30 scale-105 ring-2 ring-blue-400' : 'border-white/20 bg-white/5 hover:scale-105'}`}
+              onClick={() => setRole('student')}
+            >
               <input
                 type="radio"
                 name="role"
                 value="student"
                 checked={role === 'student'}
                 onChange={() => setRole('student')}
-                className="accent-purple-600"
+                className="hidden"
               />
-              Student
-            </label>
-            <label className="flex items-center gap-2 text-white/90 cursor-pointer">
+              <div className="text-xl font-semibold text-white mb-2 text-center">I am a Student</div>
+            </div>
+            {/* Teacher Box */}
+            <div
+              className={`glass-morphism py-4 px-6 rounded-2xl border-2 transition-all duration-200 cursor-pointer w-full text-center shadow-lg ${role === 'teacher' ? 'border-blue-500 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 shadow-blue-500/30 scale-105 ring-2 ring-blue-400' : 'border-white/20 bg-white/5 hover:scale-105'}`}
+              onClick={() => setRole('teacher')}
+            >
               <input
                 type="radio"
                 name="role"
                 value="teacher"
                 checked={role === 'teacher'}
                 onChange={() => setRole('teacher')}
-                className="accent-purple-600"
+                className="hidden"
               />
-              Teacher
-            </label>
+              <div className="text-xl font-semibold text-white mb-2 text-center">I am a Teacher</div>
+            </div>
           </div>
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
           <button type="submit" className="bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition">Continue</button>

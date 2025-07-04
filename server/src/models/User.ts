@@ -8,15 +8,15 @@ export interface IUser extends Document {
   role: 'student' | 'teacher' | 'pending';
   avatar?: string;
   bio?: string;
-  isEmailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
   googleId?: string;
   emailVerified: boolean;
-  verificationToken?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  emailVerificationCode?: string;
+  emailVerificationCodeExpires?: Date;
 }
 
 const userSchema = new Schema<IUser>({
@@ -55,10 +55,6 @@ const userSchema = new Schema<IUser>({
     type: String,
     maxlength: [500, 'Bio cannot be more than 500 characters']
   },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
   googleId: {
     type: String,
     required: false,
@@ -68,13 +64,16 @@ const userSchema = new Schema<IUser>({
     type: Boolean,
     default: false,
   },
-  verificationToken: {
-    type: String,
-  },
   resetPasswordToken: {
     type: String,
   },
   resetPasswordExpires: {
+    type: Date,
+  },
+  emailVerificationCode: {
+    type: String,
+  },
+  emailVerificationCodeExpires: {
     type: Date,
   },
 }, {

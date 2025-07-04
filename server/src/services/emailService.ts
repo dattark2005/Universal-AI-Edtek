@@ -1,36 +1,37 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false, // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
 const FROM_EMAIL = process.env.FROM_EMAIL;
 
-if (!SENDGRID_API_KEY || !FROM_EMAIL) {
-  throw new Error('SendGrid API key or FROM_EMAIL is not set in environment variables.');
-}
-
-sgMail.setApiKey(SENDGRID_API_KEY);
-
-export async function sendVerificationEmail(to: string, token: string) {
-  const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
-  const msg = {
-    to,
+export async function sendVerificationEmail(to: string, code: string) {
+  await transporter.sendMail({
     from: FROM_EMAIL,
+    to,
     subject: 'Verify your email address',
-    html: `<p>Thank you for registering! Please verify your email by clicking the link below:</p>
-           <a href="${verificationUrl}">Verify Email</a>`
-  };
-  await sgMail.send(msg);
+    html: `<p>Thank you for registering! Please verify your email by entering the following code:</p>
+           <h2 style="letter-spacing: 4px;">${code}</h2>
+           <p>This code will expire in 10 minutes.</p>`
+  });
 }
 
 export async function sendResetPasswordEmail(to: string, token: string) {
-  const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-  const msg = {
-    to,
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  await transporter.sendMail({
     from: FROM_EMAIL,
+    to,
     subject: 'Reset your password',
     html: `<p>You requested a password reset. Click the link below to set a new password:</p>
-           <a href="${resetUrl}">Reset Password</a>`
-  };
-  await sgMail.send(msg);
+           <a href="${resetUrl}">Reset Password</a>`,
+  });
 } 

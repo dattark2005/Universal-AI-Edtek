@@ -22,9 +22,15 @@ async (accessToken: string, refreshToken: string, profile: Profile, done: (error
         email,
         name: profile.displayName,
         role: 'pending', // Mark as pending if role not chosen
-        isEmailVerified: true,
+        emailVerified: true,
         googleId: profile.id,
       });
+    } else {
+      // If user exists and is not verified, mark as verified
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        await user.save();
+      }
     }
     return done(null, user);
   } catch (err) {

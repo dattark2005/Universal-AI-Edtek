@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Edit3, Save, X, Calendar, Mail, BookOpen } from "lucide-react";
+import { User, Edit3, Save, X, Calendar, Mail, BookOpen, Eye, EyeOff } from "lucide-react";
 import {
   getCurrentUser,
   updateUserProfile,
@@ -25,6 +25,9 @@ const ProfileSection: React.FC = () => {
   const [passwordError, setPasswordError] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [hasPassword, setHasPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const navigate = useNavigate();
 
@@ -306,19 +309,44 @@ const ProfileSection: React.FC = () => {
                 e.preventDefault();
                 setPasswordError("");
                 setPasswordMessage("");
-                if (newPassword !== confirmPassword) {
-                  setPasswordError("Passwords do not match.");
-                  return;
-                }
-                const validationError = validatePassword(newPassword);
-                if (validationError) {
-                  setPasswordError(validationError);
-                  return;
-                }
                 setPasswordLoading(true);
                 try {
                   if (hasPassword) {
-                    // Change password securely
+                    // 1. Check if current password is correct
+                    const checkRes = await axios.post(
+                      "/api/auth/login",
+                      {
+                        email: user.email,
+                        password: currentPassword,
+                      }
+                    );
+                    if (!checkRes.data.success) {
+                      setPasswordError("Current password is incorrect.");
+                      setPasswordLoading(false);
+                      return;
+                    }
+                  }
+                  // 2. Validate new password
+                  const validationError = validatePassword(newPassword);
+                  if (validationError) {
+                    setPasswordError(validationError);
+                    setPasswordLoading(false);
+                    return;
+                  }
+                  // 2.5. Check new password is not same as current password
+                  if (currentPassword && newPassword === currentPassword) {
+                    setPasswordError("New password cannot be the same as the current password.");
+                    setPasswordLoading(false);
+                    return;
+                  }
+                  // 3. Check confirm password
+                  if (newPassword !== confirmPassword) {
+                    setPasswordError("Passwords do not match.");
+                    setPasswordLoading(false);
+                    return;
+                  }
+                  // 4. Change password securely
+                  if (hasPassword) {
                     const res = await axios.post(
                       "/api/auth/change-password",
                       {
@@ -369,7 +397,6 @@ const ProfileSection: React.FC = () => {
                     }
                   }
                 } catch (err: any) {
-                  console.log("Password change error:", err.response);
                   setPasswordError(
                     err.response?.data?.message || "Failed to update password."
                   );
@@ -380,31 +407,61 @@ const ProfileSection: React.FC = () => {
               className="space-y-4"
             >
               {hasPassword && (
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    placeholder="Current Password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                    tabIndex={-1}
+                  >
+                    {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              )}
+              <div className="relative">
                 <input
-                  type="password"
-                  placeholder="Current Password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 pr-12"
                   required
                 />
-              )}
-              <input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                required
-              />
-              <input
-                type="password"
-                placeholder="Confirm New Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                required
-              />
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm New Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
               <button
                 type="submit"
                 disabled={passwordLoading}
