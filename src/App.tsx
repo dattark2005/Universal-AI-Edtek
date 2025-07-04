@@ -12,6 +12,12 @@ import LoginPage from "./components/Auth/LoginPage";
 import Navbar from "./components/Layout/Navbar";
 import AuthCallback from "./components/Auth/AuthCallback";
 import ResetPassword from "./components/Auth/ResetPassword";
+import RoleSelection from "./components/Auth/RoleSelection";
+import SetPassword from "./components/Auth/SetPassword";
+import ChooseRolePage from "./pages/ChooseRolePage";
+import SetPasswordPage from "./pages/SetPasswordPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 // Lazy load dashboard components for better performance
 const StudentDashboard = lazy(() => import("./components/Student/Dashboard"));
@@ -37,6 +43,8 @@ const LoadingSpinner = () => (
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
+  const [pendingRole, setPendingRole] = useState<"student" | "teacher" | null>(null);
 
   useEffect(() => {
     checkAuthStatus();
@@ -166,6 +174,19 @@ function App() {
             />
 
             <Route path="/reset-password" element={<ResetPassword />} />
+
+            <Route
+              path="/choose-role"
+              element={<ChooseRolePage setUser={setUser} />}
+            />
+            <Route
+              path="/set-password"
+              element={<SetPasswordPage setUser={setUser} />}
+            />
+
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

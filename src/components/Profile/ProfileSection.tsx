@@ -47,6 +47,15 @@ const ProfileSection: React.FC = () => {
     setHasPassword(true);
   }, []);
 
+  function validatePassword(password: string) {
+    if (password.length < 8) return 'Password must be at least 8 characters.';
+    if (!/[a-z]/.test(password)) return 'Password must contain a lowercase letter.';
+    if (!/[A-Z]/.test(password)) return 'Password must contain an uppercase letter.';
+    if (!/[0-9]/.test(password)) return 'Password must contain a number.';
+    if (!/[^A-Za-z0-9]/.test(password)) return 'Password must contain a special character.';
+    return '';
+  }
+
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("authToken");
@@ -299,6 +308,11 @@ const ProfileSection: React.FC = () => {
                 setPasswordMessage("");
                 if (newPassword !== confirmPassword) {
                   setPasswordError("Passwords do not match.");
+                  return;
+                }
+                const validationError = validatePassword(newPassword);
+                if (validationError) {
+                  setPasswordError(validationError);
                   return;
                 }
                 setPasswordLoading(true);

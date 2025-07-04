@@ -16,16 +16,30 @@ interface LoginPageProps {
   onLogin: (user: UserType) => void;
 }
 
+type UserRole = 'student' | 'teacher' | 'pending';
+
+function validatePassword(password: string) {
+  if (password.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[a-z]/.test(password)) return 'Password must contain a lowercase letter.';
+  if (!/[A-Z]/.test(password)) return 'Password must contain an uppercase letter.';
+  if (!/[0-9]/.test(password)) return 'Password must contain a number.';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Password must contain a special character.';
+  return '';
+}
+
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showVerifyNotice, setShowVerifyNotice] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     role: "student" as "student" | "teacher",
   });
 
@@ -44,6 +58,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setLoading(true);
     setError("");
 
+    if (!isLogin) {
+      const validationError = validatePassword(formData.password);
+      if (validationError) {
+        setError(validationError);
+        setLoading(false);
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       let response;
 
@@ -61,6 +89,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           password: formData.password,
           role: formData.role,
         });
+        if (response.success) {
+          setShowVerifyNotice(true);
+          setLoading(false);
+          return;
+        }
       }
 
       if (response.success) {
@@ -68,7 +101,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         setAuthToken(response.data.token);
 
         // Store user data
-        const userData: UserType = {
+        const userData: UserType & { role: UserRole } = {
           id: response.data.user.id,
           email: response.data.user.email,
           name: response.data.user.name,
@@ -81,6 +114,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         };
 
         localStorage.setItem("currentUser", JSON.stringify(userData));
+        // Check for role and password
+        if (userData.role === 'pending') {
+          window.location.href = '/choose-role';
+          return;
+        }
+        // If password is not set, backend should return a flag (hasPassword) or you can check for password existence if available
+        if (response.data.user.hasPassword === false || response.data.user.hasPassword === undefined) {
+          window.location.href = '/set-password';
+          return;
+        }
         onLogin(userData);
       } else {
         setError(response.message || "Authentication failed");
@@ -135,6 +178,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         {error && (
           <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-6">
             <p className="text-red-300 text-sm text-center">{error}</p>
+          </div>
+        )}
+
+        {showVerifyNotice && (
+          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 mb-6">
+            <p className="text-blue-200 text-sm text-center">
+              Registration successful! Please check your email to verify your account before logging in.
+            </p>
           </div>
         )}
 
@@ -200,16 +251,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70"
+              onClick={() => setShowPassword((v) => !v)}
+              tabIndex={-1}
             >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+
+          {!isLogin && (
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                required
+                className="w-full bg-white/10 border border-white/30 rounded-lg p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 pr-12"
+              />
+              <button
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          )}
 
           {!isLogin && (
             <div>
@@ -246,6 +316,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </button>
         </form>
 
+         <div className="mt-4 text-center">
+          <a href="/forgot-password" className="text-indigo-600 hover:underline text-sm">Forgot Password?</a>
+        </div>
+
         <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -275,6 +349,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             Join thousands of learners worldwide
           </p>
         </div>
+
+       
       </div>
     </div>
   );

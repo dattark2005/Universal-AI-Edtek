@@ -7,7 +7,7 @@ import { AuthenticatedRequest } from '../types';
 import passport from 'passport';
 import '../config/passport'; // Ensure GoogleStrategy is registered
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import { sendVerificationEmail, sendResetPasswordEmail } from '../services/emailService';
 
 const router = express.Router();
 
@@ -36,33 +36,25 @@ router.post('/register', validateRequest(schemas.register), async (req, res) => 
       });
     }
 
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+
     // Create user
     const user = await User.create({
       email,
       password,
       name,
-      role
+      role,
+      verificationToken,
+      emailVerified: false
     });
 
-    // Generate token
-    const token = generateToken(user._id.toString(), user.role);
+    // Send verification email
+    await sendVerificationEmail(email, verificationToken);
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          avatar: user.avatar,
-          bio: user.bio,
-          isEmailVerified: user.isEmailVerified,
-          createdAt: user.createdAt
-        },
-        token
-      }
+      message: 'User registered successfully. Please check your email to verify your account.'
     });
   } catch (error: any) {
     console.error('Registration error:', error);
@@ -70,6 +62,75 @@ router.post('/register', validateRequest(schemas.register), async (req, res) => 
       success: false,
       message: error.message || 'Server error during registration'
     });
+  }
+});
+
+// @desc    Verify email
+// @route   GET /api/auth/verify-email
+// @access  Public
+router.get('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, message: 'Invalid or missing token' });
+    }
+    const user = await User.findOne({ verificationToken: token });
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification token' });
+    }
+    user.emailVerified = true;
+    user.verificationToken = undefined;
+    await user.save();
+    res.json({ success: true, message: 'Email verified successfully' });
+  } catch (error: any) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error during email verification' });
+  }
+});
+
+// @desc    Forgot password
+// @route   POST /api/auth/forgot-password
+// @access  Public
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+    }
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+    await user.save();
+    await sendResetPasswordEmail(email, resetToken);
+    res.json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+  } catch (error: any) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error during password reset request' });
+  }
+});
+
+// @desc    Reset password
+// @route   POST /api/auth/reset-password
+// @access  Public
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: 'Token and new password are required' });
+    }
+    const user = await User.findOne({ resetPasswordToken: token, resetPasswordExpires: { $gt: new Date() } });
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (error: any) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error during password reset' });
   }
 });
 
@@ -113,7 +174,8 @@ router.post('/login', validateRequest(schemas.login), async (req, res) => {
           avatar: user.avatar,
           bio: user.bio,
           isEmailVerified: user.isEmailVerified,
-          createdAt: user.createdAt
+          createdAt: user.createdAt,
+          hasPassword: !!user.password && user.password.length > 0
         },
         token
       }
@@ -133,19 +195,30 @@ router.post('/login', validateRequest(schemas.login), async (req, res) => {
 router.post('/set-password', async (req, res) => {
   try {
     const { email, name, role, password } = req.body;
-    if (!email || !password || !name || !role) {
-      return res.status(400).json({ success: false, message: 'Email, name, role, and password are required' });
+    if (!email || !name || !role) {
+      return res.status(400).json({ success: false, message: 'Email, name, and role are required' });
     }
     let user = await User.findOne({ email }).select('+password +googleId');
     if (!user) {
+      if (!password) {
+        return res.status(400).json({ success: false, message: 'Password is required for new users' });
+      }
       // Create new user
       user = await User.create({ email, name, role, password });
       return res.json({ success: true, message: 'User created and password set', data: { hasPassword: true } });
     }
-    // For any user, always allow password overwrite without current password
-    user.password = password;
-    await user.save();
-    res.json({ success: true, message: 'Password updated successfully', data: { hasPassword: true } });
+    // Update role and name if provided
+    user.role = role;
+    user.name = name;
+    // If password is provided, update it
+    if (password) {
+      user.password = password;
+      await user.save();
+      return res.json({ success: true, message: 'Password updated successfully', data: { hasPassword: true } });
+    } else {
+      await user.save();
+      return res.json({ success: true, message: 'Role updated successfully', data: { hasPassword: !!user.password } });
+    }
   } catch (error: any) {
     console.error('Set password error:', error);
     res.status(500).json({ success: false, message: error.message || 'Server error setting password' });

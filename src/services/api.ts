@@ -119,6 +119,13 @@ export const authAPI = {
       method: 'GET',
     });
   },
+
+  setPasswordOrRole: async ({ email, name, role, password }: { email: string; name: string; role: 'student' | 'teacher'; password?: string }) => {
+    return await apiRequest('/auth/set-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, name, role, password }),
+    });
+  },
 };
 
 // External Quiz API with caching

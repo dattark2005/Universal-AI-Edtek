@@ -5,7 +5,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   name: string;
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'pending';
   avatar?: string;
   bio?: string;
   isEmailVerified: boolean;
@@ -13,6 +13,10 @@ export interface IUser extends Document {
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
   googleId?: string;
+  emailVerified: boolean;
+  verificationToken?: string;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
 }
 
 const userSchema = new Schema<IUser>({
@@ -27,7 +31,7 @@ const userSchema = new Schema<IUser>({
   password: {
     type: String,
     required: false,
-    minlength: [6, 'Password must be at least 6 characters'],
+    minlength: [8, 'Password must be at least 8 characters'],
     select: false
   },
   name: {
@@ -38,7 +42,7 @@ const userSchema = new Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ['student', 'teacher'],
+    enum: ['student', 'teacher', 'pending'],
     required: [true, 'Role is required']
   },
   avatar: {
@@ -59,7 +63,20 @@ const userSchema = new Schema<IUser>({
     type: String,
     required: false,
     index: true
-  }
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  verificationToken: {
+    type: String,
+  },
+  resetPasswordToken: {
+    type: String,
+  },
+  resetPasswordExpires: {
+    type: Date,
+  },
 }, {
   timestamps: true,
   toJSON: {

@@ -16,7 +16,11 @@ const AuthCallback = ({ onLogin }: { onLogin: (user: any) => void }) => {
         .then((res) => {
           localStorage.setItem("currentUser", JSON.stringify(res.data.user));
           onLogin(res.data.user);
+          if (res.data.user.role === 'pending') {
+            navigate("/choose-role");
+          } else {
           navigate("/dashboard");
+          }
         })
         .catch(() => {
           navigate("/login");
